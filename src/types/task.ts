@@ -1,25 +1,44 @@
-export type Priority = 'high' | 'medium' | 'low';
-
-export interface Task {
+// src/types/task.ts
+export interface TaskItem {
   id: string;
-  title: string;
-  description?: string;
-  priority: Priority;
-  completed: boolean;
-  category?: string;
+  content: string;
+  priority: 'high' | 'medium' | 'low';
+  estimatedTime: number; // in minutes
   deadline?: string;
-  createdAt: Date;
-  completedAt?: Date;
+  assignee?: string;
+  completed: boolean;
+  tags: string[];
+  dependencies: string[];
+  createdAt: string;
+  updatedAt?: string;
+  notes?: string;
 }
 
 export interface TaskGroup {
-  category: string;
-  tasks: Task[];
+  id: string;
+  name: string;
+  description: string;
+  tasks: TaskItem[];
+}
+
+export interface AnalysisSummary {
+  projectDescription: string;
+  milestones: string[];
+  resources: string[];
+  risks: string[];
+  recommendations: string[];
+}
+
+export interface ProcessingStats {
+  tokensUsed: number;
+  processingTime: number; // timestamp
 }
 
 export interface AnalysisResult {
-  groups: TaskGroup[];
   totalTasks: number;
-  estimatedTime?: string;
-  summary?: string;
+  groups: TaskGroup[];
+  summary?: AnalysisSummary;
+  fileName?: string;
+  processedAt: string;
+  processingStats?: ProcessingStats;
 }
