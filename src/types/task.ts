@@ -3,15 +3,16 @@ export interface TaskItem {
   id: string;
   content: string;
   priority: 'high' | 'medium' | 'low';
-  estimatedTime: number; // in minutes
+  estimatedTime: number;
   deadline?: string;
   assignee?: string;
   completed: boolean;
   tags: string[];
   dependencies: string[];
-  createdAt: string;
-  updatedAt?: string;
+  subtasks: TaskItem[];
   notes?: string;
+  category?: string;
+  createdAt: string;
 }
 
 export interface TaskGroup {

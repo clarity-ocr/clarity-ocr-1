@@ -1,150 +1,65 @@
-// src/components/FileUpload.tsx
-import { useState, useCallback, useRef } from 'react';
-import { 
-  Upload, 
-  FileText, 
-  Image, 
-  File, 
-  Loader2, 
-  CheckCircle, 
-  AlertCircle, 
-  Download, 
-  Scissors,
-  FileSpreadsheet,
-  FileJson,
-  Smartphone,
-  Monitor
+// FileUpload.tsx
+import React, { useState, useRef } from 'react';
+import {
+  Upload,
+  FileText,
+  Image,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Sparkles,
+  File,
+  X,
+  FileImage,
+  FileCode,
+  Type,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { performOCR } from '@/services/ocrService';
-import { analyzeDocument } from '@/services/aiAnalysis';
+import { extractTextFromFile, OcrResult } from '@/services/ocrService';
+import { motion, AnimatePresence } from "framer-motion";
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 interface FileUploadProps {
   onAnalyze: (content: string, fileName?: string) => Promise<void>;
   isAnalyzing: boolean;
-  progress?: number; 
+  progress?: number;
 }
 
-export const FileUpload = ({ onAnalyze, isAnalyzing, progress }: FileUploadProps) => {
+export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
   const [textInput, setTextInput] = useState('');
-  const [dragActive, setDragActive] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<string | null>(null);
-  const [processingStep, setProcessingStep] = useState<string>('Uploading...');
-  const [ocrResult, setOcrResult] = useState<{ text: string; confidence: number; pages?: number } | null>(null);
+  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' bytes';
-    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    else return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes < 1024) return `${bytes} bytes`;
+    const sizes = ['KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i - 1]}`;
   };
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
-    }
-  }, []);
-
-  const handleFileUpload = async (file: File) => {
-    try {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        throw new Error('File size exceeds maximum limit of 10MB. Please upload a smaller file.');
-      }
-
-      setUploadStatus('processing');
-      setFileName(file.name);
-      setFileSize(formatFileSize(file.size));
-      setProcessingStep('Uploading...');
-      
-      toast({
-        title: "Processing file...",
-        description: `Analyzing ${file.name} (${formatFileSize(file.size)})`
-      });
-
-      // Handle different file types
-      if (file.type.includes('text') || file.name.endsWith('.txt')) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const content = e.target?.result as string;
-          if (content) {
-            setProcessingStep('Analyzing with AI...');
-            await onAnalyze(content, file.name);
-            setUploadStatus('success');
-          }
-        };
-        reader.readAsText(file);
-      } else if (
-        file.type.startsWith('image/') || 
-        file.name.match(/\.(pdf|jpg|jpeg|png|gif|tiff|bmp)$/i)
-      ) {
-        // Perform OCR for images and PDFs
-        setProcessingStep('Performing OCR...');
-        const ocrResultData = await performOCR(file); 
-        setOcrResult(ocrResultData);
-        setProcessingStep(
-          `OCR Complete (${ocrResultData.confidence}% confidence${ocrResultData.pages ? `, ${ocrResultData.pages} page${ocrResultData.pages > 1 ? 's' : ''}` : ''})`
-        );
-        
-        // Start AI analysis immediately after OCR completes
-        setProcessingStep('Analyzing with AI...');
-        await onAnalyze(ocrResultData.text, file.name);
-        setUploadStatus('success');
-      } else {
-        // For other document types (DOCX, etc.)
-        await onAnalyze(`Demo content extracted from ${file.name}`, file.name);
-        setUploadStatus('success');
-      }
-    } catch (error: any) {
-      setUploadStatus('error');
-      toast({
-        title: "Processing failed",
-        description: error.message || "Failed to process the document",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleTextAnalyze = async () => {
-    if (textInput.trim()) {
-      setProcessingStep('Analyzing with AI...');
-      setUploadStatus('processing'); // Show processing state for text too
-      try {
-        await onAnalyze(textInput, 'Pasted Text');
-        setUploadStatus('success');
-        toast({
-          title: "Text analyzed!",
-          description: "Extracting tasks from your content..."
-        });
-      } catch (error: any) {
-         console.error("Text Analysis Error:", error);
-         setUploadStatus('error');
-         toast({
-           title: "Analysis failed",
-           description: error.message || "Failed to analyze the text.",
-           variant: "destructive"
-         });
-      }
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.toLowerCase().split('.').pop();
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff'].includes(ext || '')) {
+      return <FileImage className="w-5 h-5 text-purple-600" />;
+    } else if (['docx'].includes(ext || '')) {
+      return <FileText className="w-5 h-5 text-blue-600" />;
+    } else if (['md', 'markdown'].includes(ext || '')) {
+      return <FileCode className="w-5 h-5 text-green-600" />;
+    } else if (['pdf'].includes(ext || '')) {
+      return <File className="w-5 h-5 text-red-600" />;
+    } else {
+      return <Type className="w-5 h-5 text-gray-600" />;
     }
   };
 
@@ -152,261 +67,380 @@ export const FileUpload = ({ onAnalyze, isAnalyzing, progress }: FileUploadProps
     setUploadStatus('idle');
     setFileName(null);
     setFileSize(null);
-    setProcessingStep('Uploading...');
     setOcrResult(null);
+    setUploadProgress(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const getFileIcon = (fileName: string) => {
-    if (fileName.includes('image') || fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
-      return <Image className="w-6 h-6 text-blue-500" />;
-    } else if (fileName.includes('pdf') || fileName.includes('doc')) {
-      return <FileText className="w-6 h-6 text-red-500" />;
+  const handleFileUpload = async (file: File) => {
+    // Reset any existing file state before processing the new file
+    resetUpload();
+    
+    try {
+      setUploadStatus("processing");
+      setFileName(file.name);
+      setFileSize(formatFileSize(file.size));
+      setUploadProgress(0);
+      
+      toast({
+        title: "Processing file...",
+        description: `Analyzing ${file.name} (${formatFileSize(file.size)})`,
+      });
+
+      // Use the enhanced text extraction service
+      const result = await extractTextFromFile(file, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      setOcrResult(result);
+
+      // Send extracted text to AI analysis with enhanced prompt
+      await onAnalyze(result.text, file.name);
+      setUploadStatus("success");
+    } catch (error: any) {
+      console.error("File Upload Error:", error);
+      setUploadStatus("error");
+      toast({
+        title: "Processing Failed",
+        description: error.message || "Failed to process the file.",
+        variant: "destructive",
+      });
     }
-    return <File className="w-6 h-6 text-gray-500" />;
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleTextAnalyze = async () => {
+    if (textInput.trim()) {
+      // Enhanced prompt for better task extraction
+      const enhancedPrompt = `
+        Please analyze the following text and extract all tasks, action items, and to-dos.
+        
+        For each task, provide:
+        1. Task title (short and descriptive)
+        2. Detailed description (if available)
+        3. Priority level (High, Medium, Low)
+        4. Due date (if mentioned)
+        5. Assignee (if mentioned)
+        6. Category or project (if mentioned)
+        
+        Format the output as a JSON array with the following structure:
+        [
+          {
+            "title": "Task title",
+            "description": "Detailed description",
+            "priority": "High",
+            "dueDate": "YYYY-MM-DD",
+            "assignee": "Name",
+            "category": "Project name"
+          }
+        ]
+        
+        If no tasks are found, return an empty array.
+        
+        Text to analyze:
+        ${textInput}
+      `;
+      
+      await onAnalyze(enhancedPrompt, 'Pasted Text');
+      toast({
+        title: "Text analyzed!",
+        description: "Extracting tasks from your content...",
+      });
+    }
+  };
+
+  // Animation variants
+  const cardVariants = {
+    idle: { 
+      y: 0, 
+      rotateX: 0, 
+      rotateY: 0,
+      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+      transition: { duration: 0.3 }
+    },
+    hover: { 
+      y: -10, 
+      rotateX: 5, 
+      rotateY: 5,
+      boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+      transition: { duration: 0.3 }
+    },
+    tap: { 
+      scale: 0.98, 
+      rotateX: 0, 
+      rotateY: 0,
+      transition: { duration: 0.1 }
+    }
+  };
+
+  const buttonVariants = {
+    idle: { scale: 1 },
+    hover: { scale: 1.05 },
+    tap: { scale: 0.95 }
+  };
+
+  const progressVariants = {
+    initial: { width: 0 },
+    animate: { width: `${uploadProgress}%` }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-4xl mx-auto">
+      {/* Header */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="text-center mb-8"
+      >
+        <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          Document Intelligence Analyzer
+        </h1>
+        <p className="text-gray-600 mt-2">Upload documents or paste text to extract and analyze content</p>
+      </motion.div>
+
       {/* Text Input Section */}
-      <Card className="p-6 transition-all duration-300 hover:shadow-lg border border-border/50 animate-fade-in">
-        <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
-          <FileText className="w-5 h-5 text-primary" />
-          Paste Your Content
-        </h3>
-        <Textarea
-          placeholder="Paste meeting notes, instructions, syllabus, or any document content here..."
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-          className="min-h-32 resize-none transition-all duration-200 focus:ring-2 focus:ring-primary"
-        />
-        <Button 
-          onClick={handleTextAnalyze}
-          disabled={!textInput.trim() || isAnalyzing}
-          className="mt-4 gradient-primary text-white hover:opacity-90 transition-all duration-200 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
-        >
-          {isAnalyzing ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            <>
-              <FileText className="w-4 h-4 mr-2" />
-              Analyze Text
-            </>
-          )}
-        </Button>
-      </Card>
+      <motion.div
+        variants={cardVariants}
+        initial="idle"
+        whileHover="hover"
+        whileTap="tap"
+      >
+        <Card className="p-6 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <FileText className="w-5 h-5 text-blue-600" />
+            </div>
+            <h3 className="text-lg font-semibold">Analyze Text</h3>
+          </div>
+          
+          <Textarea
+            placeholder="Paste text here to analyze..."
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            className="min-h-[150px] mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          
+          <motion.div
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+          >
+            <Button
+              onClick={handleTextAnalyze}
+              disabled={!textInput.trim() || isAnalyzing}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Analyze Text
+                </>
+              )}
+            </Button>
+          </motion.div>
+        </Card>
+      </motion.div>
 
       {/* File Upload Section */}
-      <Card className="p-6 transition-all duration-300 hover:shadow-lg border border-border/50 animate-fade-in animation-delay-200">
-        <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
-          <Upload className="w-5 h-5 text-primary" />
-          Upload Document (Up to 10MB)
-        </h3>
-        
-        {uploadStatus === 'idle' ? (
-          <div
-            className={`border-2 border-dashed rounded-xl p-6 md:p-8 text-center transition-all duration-300 transform ${
-              dragActive 
-                ? 'border-primary bg-primary/10 scale-[1.02]' 
-                : 'border-border hover:border-primary/50'
-            }`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground transition-all duration-300" />
-            <p className="text-lg font-medium mb-2">Drop files here or click to upload</p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Supports PDF, DOCX, TXT, images (up to 10MB)
-            </p>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              id="file-upload"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files?.[0]) {
-                  handleFileUpload(e.target.files[0]);
-                }
-              }}
-              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.tiff,.bmp"
-            />
-            
-            <Button 
-              variant="outline" 
-              onClick={() => document.getElementById('file-upload')?.click()}
-              disabled={isAnalyzing}
-              className="transition-all duration-200 hover:scale-105 shadow-sm w-full sm:w-auto"
-            >
-              Choose File
-            </Button>
-          </div>
-        ) : (
-          <div className={`p-6 rounded-xl border transition-all duration-500 animate-slide-up ${
-            uploadStatus === 'success' 
-              ? 'border-green-500 bg-green-50' 
-              : uploadStatus === 'error' 
-                ? 'border-red-500 bg-red-50' 
-                : 'border-blue-500 bg-blue-50'
-          }`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                {uploadStatus === 'processing' && <Loader2 className="w-5 h-5 animate-spin text-blue-500" />}
-                {uploadStatus === 'success' && <CheckCircle className="w-5 h-5 text-green-500" />}
-                {uploadStatus === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
-                
-                <div>
-                  <p className="font-medium flex items-center gap-2">
-                    {uploadStatus === 'processing' && (
-                      <>
-                        <Scissors className="w-4 h-4" />
-                        {processingStep}
-                      </>
-                    )}
-                    {uploadStatus === 'success' && 'Processing Complete!'}
-                    {uploadStatus === 'error' && 'Processing Failed'}
-                  </p>
-                  {fileName && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      {getFileIcon(fileName)}
-                      <span className="truncate max-w-[200px]">{fileName}</span> 
-                      {fileSize && `(${fileSize})`}
-                    </p>
-                  )}
-                  {ocrResult && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      OCR Confidence: {ocrResult.confidence}%
-                      {ocrResult.pages !== undefined ? ` • ${ocrResult.pages} page${ocrResult.pages > 1 ? 's' : ''}` : ''}
-                    </p>
-                  )}
-                </div>
-              </div>
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={resetUpload}
-                className="text-muted-foreground hover:text-foreground self-start sm:self-auto"
-              >
-                Upload Another
-              </Button>
+      <motion.div
+        variants={cardVariants}
+        initial="idle"
+        whileHover="hover"
+        whileTap="tap"
+      >
+        <Card className="p-6 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Upload className="w-5 h-5 text-purple-600" />
             </div>
-            
-            {(uploadStatus === 'processing' || isAnalyzing) && progress !== undefined && (
-              <div className="mt-4 space-y-2">
-                <Progress value={progress} className="w-full" />
-                <p className="text-xs text-muted-foreground text-center">
-                  {progress !== undefined ? `${progress}% complete` : 'Processing...'}
+            <h3 className="text-lg font-semibold">Upload Document</h3>
+            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">Max 50MB</span>
+          </div>
+          
+          {/* Hidden file input */}
+          <input
+            id="file-upload"
+            type="file"
+            ref={fileInputRef}
+            accept=".pdf,.docx,.txt,.md,.markdown,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp"
+            onChange={(e) => {
+              if (e.target.files?.[0]) {
+                handleFileUpload(e.target.files[0]);
+              }
+            }}
+            disabled={isAnalyzing}
+            className="hidden"
+          />
+          
+          {/* Drag & Drop Area */}
+          <motion.div
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
+              isDragging 
+                ? 'border-blue-500 bg-blue-50' 
+                : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+            }`}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => document.getElementById('file-upload')?.click()}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="flex flex-col items-center justify-center gap-3">
+              <motion.div
+                animate={{ 
+                  y: [0, -10, 0],
+                  rotate: [0, 5, 0, -5, 0]
+                }}
+                transition={{ 
+                  duration: 2, 
+                  repeat: Infinity,
+                  repeatType: "reverse"
+                }}
+              >
+                <div className="p-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full">
+                  <Upload className="w-8 h-8 text-blue-600" />
+                </div>
+              </motion.div>
+              
+              <div>
+                <p className="font-medium text-gray-700">
+                  Drag & drop your file here
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  or click to browse files
                 </p>
               </div>
+              
+              <div className="flex flex-wrap justify-center gap-2 mt-2">
+                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center gap-1">
+                  <File className="w-3 h-3" /> PDF
+                </span>
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1">
+                  <FileText className="w-3 h-3" /> DOCX
+                </span>
+                <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full flex items-center gap-1">
+                  <FileCode className="w-3 h-3" /> MD
+                </span>
+                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center gap-1">
+                  <FileImage className="w-3 h-3" /> Images
+                </span>
+              </div>
+            </div>
+          </motion.div>
+          
+          {/* Upload Progress */}
+          <AnimatePresence>
+            {uploadStatus === 'processing' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-4"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-gray-600">Processing...</span>
+                  <span className="text-sm font-medium text-blue-600">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <motion.div
+                    variants={progressVariants}
+                    initial="initial"
+                    animate="animate"
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 h-2.5 rounded-full"
+                  />
+                </div>
+              </motion.div>
             )}
-          </div>
-        )}
-
-        {/* Supported Formats */}
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2 p-3 rounded-lg hover:bg-secondary transition-colors border border-border/50">
-            <FileText className="w-4 h-4 text-red-500 flex-shrink-0" />
-            <span className="truncate">PDF (up to 10MB)</span>
-          </div>
-          <div className="flex items-center gap-2 p-3 rounded-lg hover:bg-secondary transition-colors border border-border/50">
-            <Image className="w-4 h-4 text-blue-500 flex-shrink-0" />
-            <span className="truncate">Images (OCR)</span>
-          </div>
-          <div className="flex items-center gap-2 p-3 rounded-lg hover:bg-secondary transition-colors border border-border/50">
-            <File className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span className="truncate">TXT, CSV</span>
-          </div>
-          <div className="flex items-center gap-2 p-3 rounded-lg hover:bg-secondary transition-colors border border-border/50">
-            <Download className="w-4 h-4 text-green-500 flex-shrink-0" />
-            <span className="truncate">Export Ready</span>
-          </div>
-        </div>
-      </Card>
-
-      {/* Feature Highlights */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 animate-fade-in animation-delay-400">
-        <Card className="p-4 flex items-center gap-3 transition-all duration-300 hover:shadow-md border border-border/50">
-          <div className="p-2 rounded-lg bg-blue-100 text-blue-600 relative">
-            <Image className="w-5 h-5" />
-            {/* Optional 3D effect placeholder - requires Three.js integration */}
-            {/* <div className="absolute inset-0 bg-blue-200 rounded-lg transform translate-z-2 opacity-30"></div> */}
-          </div>
-          <div>
-            <p className="font-medium text-sm">Advanced OCR</p>
-            <p className="text-xs text-muted-foreground">Handles large files efficiently</p>
-          </div>
+          </AnimatePresence>
+          
+          {/* File Info */}
+          <AnimatePresence>
+            {(fileName || uploadStatus !== 'idle') && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="mt-4 p-4 bg-gray-50 rounded-lg flex items-start justify-between"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    {fileName ? getFileIcon(fileName) : <File className="w-5 h-5 text-gray-600" />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800 truncate max-w-xs">{fileName}</p>
+                    {fileSize && <p className="text-sm text-gray-500">{fileSize}</p>}
+                    {ocrResult && (
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Zap className="w-3 h-3" /> Confidence: {ocrResult.confidence}%
+                        </span>
+                        {ocrResult.pages && (
+                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                            {ocrResult.pages} page(s)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {uploadStatus === 'processing' && (
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                  )}
+                  {uploadStatus === 'success' && (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  )}
+                  {uploadStatus === 'error' && (
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                  )}
+                  <button 
+                    onClick={resetUpload}
+                    className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-200"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
-        
-        <Card className="p-4 flex items-center gap-3 transition-all duration-300 hover:shadow-md border border-border/50">
-          <div className="p-2 rounded-lg bg-purple-100 text-purple-600 relative">
-            <FileSpreadsheet className="w-5 h-5" />
-            {/* <div className="absolute inset-0 bg-purple-200 rounded-lg transform translate-z-2 opacity-30"></div> */}
-          </div>
-          <div>
-            <p className="font-medium text-sm">Smart Analysis</p>
-            <p className="text-xs text-muted-foreground">AI-powered task extraction</p>
-          </div>
-        </Card>
-        
-        <Card className="p-4 flex items-center gap-3 transition-all duration-300 hover:shadow-md border border-border/50">
-          <div className="p-2 rounded-lg bg-green-100 text-green-600 relative group">
-            <Monitor className="w-5 h-5" />
-            <Smartphone className="w-5 h-5 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 transition-all duration-300 group-hover:opacity-100 scale-75 group-hover:scale-100" />
-            {/* <div className="absolute inset-0 bg-green-200 rounded-lg transform translate-z-2 opacity-30"></div> */}
-          </div>
-          <div>
-            <p className="font-medium text-sm">Mobile Friendly</p>
-            <p className="text-xs text-muted-foreground">Responsive design</p>
-          </div>
-        </Card>
-      </div>
-
-      {/* Custom Styles */}
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out forwards;
-        }
-        
-        .animate-slide-up {
-          animation: slideUp 0.4s ease-out forwards;
-        }
-        
-        .animation-delay-200 {
-          animation-delay: 0.2s;
-        }
-        
-        .animation-delay-400 {
-          animation-delay: 0.4s;
-        }
-        
-        .gradient-primary {
-          background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        }
-        
-        /* Basic 3D-like effect for cards on hover */
-        .transition-all:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-      `}</style>
+      </motion.div>
+      
+      {/* Footer Note */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="text-center text-sm text-gray-500 mt-6"
+      >
+        <p>All files are processed securely. We don't store your documents after analysis.</p>
+      </motion.div>
     </div>
   );
 };
