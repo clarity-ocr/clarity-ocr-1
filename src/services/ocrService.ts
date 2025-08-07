@@ -1,10 +1,12 @@
-// extractTextService.ts
 import Tesseract from 'tesseract.js';
 import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
 
-// Configure PDF.js worker with a more reliable source
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// ✅ PDF.js worker fix for Vite
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min?url'; // <- This works in Vite
+
+GlobalWorkerOptions.workerSrc = workerSrc;
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -30,7 +32,7 @@ export const extractTextFromFile = async (
         `File size (${fileSizeMB} MB) exceeds the maximum allowed size of 50 MB.`
       );
     }
-
+    
     const ext = file.name.toLowerCase();
     let extractedText = "";
     let confidence = 100; // Default for non-OCR files
@@ -116,7 +118,12 @@ const extractPdfTextOptimized = async (
     const arrayBuffer = await file.arrayBuffer();
     
     // Create a loading task to better handle PDF loading
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const loadingTask = pdfjsLib.getDocument({ 
+      data: arrayBuffer,
+      disableRange: true,
+      disableStream: true,
+      disableAutoFetch: true,
+    });
     
     // Set up progress listener for PDF loading
     loadingTask.onProgress = (progress) => {
@@ -144,7 +151,13 @@ const extractPdfTextOptimized = async (
         
         // Process text items more carefully
         const pageText = textContent.items
-          .map((item: any) => item.str || '')
+          .map((item: any) => {
+            // Ensure the item has a string property
+            if (item && typeof item.str === 'string') {
+              return item.str;
+            }
+            return '';
+          })
           .join(' ')
           .replace(/\s+/g, ' ') // Normalize whitespace
           .trim();
@@ -195,6 +208,12 @@ const performPdfOcr = async (
     throw new Error('PDF OCR requires a browser environment');
   }
 
+  // Check if canvas is supported
+  const canvas = document.createElement('canvas');
+  if (!canvas.getContext) {
+    throw new Error('Canvas is not supported in this browser');
+  }
+
   let fullText = "";
   let totalConfidence = 0;
   let processedPages = 0;
@@ -214,30 +233,53 @@ const performPdfOcr = async (
       // Create canvas
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Failed to get canvas context');
+      }
+      
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       
+      // Set white background
+      context.fillStyle = 'rgb(255, 255, 255)';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      
       // Render PDF page to canvas
-      await page.render({ canvasContext: context, viewport }).promise;
+      await page.render({ 
+        canvasContext: context, 
+        viewport: viewport,
+        intent: 'display' // Use display intent for better OCR results
+      }).promise;
       
       // Convert canvas to image blob
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob!), 'image/png');
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to create blob from canvas'));
+          }
+        }, 'image/png');
       });
       
       // Create a file from the blob
       const imageFile = new File([blob], `page-${pageNum}.png`, { type: 'image/png' });
       
-      // Perform OCR on the image
-      const result = await Tesseract.recognize(imageFile, 'eng+tam+hin', {
-        logger: (m) => {
-          // We could update progress within the page, but we're already updating per page
-        },
-      });
-      
-      fullText += result.data.text + "\n";
-      totalConfidence += result.data.confidence;
-      processedPages++;
+      // Perform OCR on the image with error handling
+      try {
+        const result = await Tesseract.recognize(imageFile, 'eng+tam+hin', {
+          logger: (m) => {
+            // We could update progress within the page, but we're already updating per page
+          }
+        });
+        
+        fullText += result.data.text + "\n";
+        totalConfidence += result.data.confidence;
+        processedPages++;
+      } catch (tesseractError) {
+        console.error(`Tesseract OCR failed for page ${pageNum}:`, tesseractError);
+        // Continue with next page
+      }
     } catch (pageError) {
       console.error(`Error processing page ${pageNum} for OCR:`, pageError);
       // Continue with next page

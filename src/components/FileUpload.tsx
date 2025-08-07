@@ -14,6 +14,7 @@ import {
   FileCode,
   Type,
   Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -22,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { extractTextFromFile, OcrResult } from '@/services/ocrService';
 import { motion, AnimatePresence } from "framer-motion";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
 
 interface FileUploadProps {
   onAnalyze: (content: string, fileName?: string) => Promise<void>;
@@ -38,6 +39,7 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
   const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -69,9 +71,26 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
     setFileSize(null);
     setOcrResult(null);
     setUploadProgress(0);
+    setErrorDetails(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const validateFile = (file: File): string | null => {
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      return `File size (${formatFileSize(file.size)}) exceeds maximum allowed size of ${formatFileSize(MAX_FILE_SIZE)}`;
+    }
+    // Check file type
+    const allowedExtensions = ['.pdf', '.docx', '.txt', '.md', '.markdown', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'];
+    const fileName = file.name.toLowerCase();
+    const isValidType = allowedExtensions.some(ext => fileName.endsWith(ext));
+    
+    if (!isValidType) {
+      return `File type not supported. Allowed types: ${allowedExtensions.join(', ')}`;
+    }
+    return null; // File is valid
   };
 
   const handleFileUpload = async (file: File) => {
@@ -79,6 +98,18 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
     resetUpload();
     
     try {
+      // Validate file before processing
+      const validationError = validateFile(file);
+      if (validationError) {
+        setUploadStatus('error');
+        setErrorDetails(validationError);
+        toast({
+          title: "File Validation Failed",
+          description: validationError,
+          variant: "destructive",
+        });
+        return;
+      }
       setUploadStatus("processing");
       setFileName(file.name);
       setFileSize(formatFileSize(file.size));
@@ -88,23 +119,45 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
         title: "Processing file...",
         description: `Analyzing ${file.name} (${formatFileSize(file.size)})`,
       });
-
+      
       // Use the enhanced text extraction service
       const result = await extractTextFromFile(file, (progress) => {
         setUploadProgress(progress);
       });
-
       setOcrResult(result);
-
-      // Send extracted text to AI analysis with enhanced prompt
+      
+      // Validate extracted content
+      if (!result.text || result.text.trim().length < 10) {
+        throw new Error("Could not extract enough readable text from the file. The file might be corrupted, password-protected, or contain mostly images.");
+      }
+      
+      // Send extracted text to AI analysis
       await onAnalyze(result.text, file.name);
       setUploadStatus("success");
+      
+      toast({
+        title: "File processed successfully!",
+        description: `Extracted ${result.text.length} characters of text for analysis.`,
+      });
     } catch (error: any) {
       console.error("File Upload Error:", error);
       setUploadStatus("error");
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to process the file.";
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = "Network error occurred. Please check your connection and try again.";
+      } else if (error.code === 'TIMEOUT') {
+        errorMessage = "File processing timed out. The file might be too large or complex.";
+      }
+      
+      setErrorDetails(errorMessage);
+      
       toast({
         title: "Processing Failed",
-        description: error.message || "Failed to process the file.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -129,41 +182,30 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
 
   const handleTextAnalyze = async () => {
     if (textInput.trim()) {
-      // Enhanced prompt for better task extraction
-      const enhancedPrompt = `
-        Please analyze the following text and extract all tasks, action items, and to-dos.
+      try {
+        // Validate text input
+        if (textInput.trim().length < 10) {
+          toast({
+            title: "Text too short",
+            description: "Please provide at least 10 characters of text to analyze.",
+            variant: "destructive",
+          });
+          return;
+        }
+        await onAnalyze(textInput.trim(), 'Pasted Text');
         
-        For each task, provide:
-        1. Task title (short and descriptive)
-        2. Detailed description (if available)
-        3. Priority level (High, Medium, Low)
-        4. Due date (if mentioned)
-        5. Assignee (if mentioned)
-        6. Category or project (if mentioned)
-        
-        Format the output as a JSON array with the following structure:
-        [
-          {
-            "title": "Task title",
-            "description": "Detailed description",
-            "priority": "High",
-            "dueDate": "YYYY-MM-DD",
-            "assignee": "Name",
-            "category": "Project name"
-          }
-        ]
-        
-        If no tasks are found, return an empty array.
-        
-        Text to analyze:
-        ${textInput}
-      `;
-      
-      await onAnalyze(enhancedPrompt, 'Pasted Text');
-      toast({
-        title: "Text analyzed!",
-        description: "Extracting tasks from your content...",
-      });
+        toast({
+          title: "Text analyzed!",
+          description: "Extracting tasks from your content...",
+        });
+      } catch (error: any) {
+        console.error("Text Analysis Error:", error);
+        toast({
+          title: "Analysis Failed",
+          description: error.message || "Failed to analyze the text. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -224,7 +266,7 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
         whileHover="hover"
         whileTap="tap"
       >
-        <Card className="p-6 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl overflow-hidden">
+        <Card className="p-6 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-100 rounded-lg">
               <FileText className="w-5 h-5 text-blue-600" />
@@ -233,7 +275,7 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
           </div>
           
           <Textarea
-            placeholder="Paste text here to analyze..."
+            placeholder="Paste text here to analyze (minimum 10 characters)..."
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             className="min-h-[150px] mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -246,7 +288,7 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
           >
             <Button
               onClick={handleTextAnalyze}
-              disabled={!textInput.trim() || isAnalyzing}
+              disabled={!textInput.trim() || textInput.trim().length < 10 || isAnalyzing}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2"
             >
               {isAnalyzing ? (
@@ -272,13 +314,13 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
         whileHover="hover"
         whileTap="tap"
       >
-        <Card className="p-6 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl overflow-hidden">
+        <Card className="p-6 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-purple-100 rounded-lg">
               <Upload className="w-5 h-5 text-purple-600" />
             </div>
             <h3 className="text-lg font-semibold">Upload Document</h3>
-            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">Max 50MB</span>
+            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">Max 1MB</span>
           </div>
           
           {/* Hidden file input */}
@@ -301,38 +343,48 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
             className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
               isDragging 
                 ? 'border-blue-500 bg-blue-50' 
+                : uploadStatus === 'error'
+                ? 'border-red-300 bg-red-50'
                 : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
             }`}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            onClick={() => document.getElementById('file-upload')?.click()}
+            onClick={() => !isAnalyzing && document.getElementById('file-upload')?.click()}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
             <div className="flex flex-col items-center justify-center gap-3">
               <motion.div
                 animate={{ 
-                  y: [0, -10, 0],
-                  rotate: [0, 5, 0, -5, 0]
+                  y: uploadStatus === 'processing' ? 0 : [0, -10, 0],
+                  rotate: uploadStatus === 'processing' ? 0 : [0, 5, 0, -5, 0]
                 }}
                 transition={{ 
                   duration: 2, 
-                  repeat: Infinity,
+                  repeat: uploadStatus === 'processing' ? 0 : Infinity,
                   repeatType: "reverse"
                 }}
               >
-                <div className="p-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full">
-                  <Upload className="w-8 h-8 text-blue-600" />
+                <div className={`p-3 rounded-full ${
+                  uploadStatus === 'error' 
+                    ? 'bg-red-100' 
+                    : 'bg-gradient-to-r from-blue-100 to-purple-100'
+                }`}>
+                  {uploadStatus === 'error' ? (
+                    <AlertTriangle className="w-8 h-8 text-red-600" />
+                  ) : (
+                    <Upload className="w-8 h-8 text-blue-600" />
+                  )}
                 </div>
               </motion.div>
               
               <div>
                 <p className="font-medium text-gray-700">
-                  Drag & drop your file here
+                  {uploadStatus === 'error' ? 'Upload failed - Click to try again' : 'Drag & drop your file here'}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  or click to browse files
+                  {uploadStatus === 'error' ? 'or click to select a different file' : 'or click to browse files'}
                 </p>
               </div>
               
@@ -385,46 +437,57 @@ export const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="mt-4 p-4 bg-gray-50 rounded-lg flex items-start justify-between"
+                className="mt-4 p-4 bg-gray-50 rounded-lg"
               >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    {fileName ? getFileIcon(fileName) : <File className="w-5 h-5 text-gray-600" />}
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-800 truncate max-w-xs">{fileName}</p>
-                    {fileSize && <p className="text-sm text-gray-500">{fileSize}</p>}
-                    {ocrResult && (
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Zap className="w-3 h-3" /> Confidence: {ocrResult.confidence}%
-                        </span>
-                        {ocrResult.pages && (
-                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
-                            {ocrResult.pages} page(s)
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="p-2 bg-gray-100 rounded-lg">
+                      {fileName ? getFileIcon(fileName) : <File className="w-5 h-5 text-gray-600" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800 truncate max-w-xs">{fileName}</p>
+                      {fileSize && <p className="text-sm text-gray-500">{fileSize}</p>}
+                      {ocrResult && (
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Zap className="w-3 h-3" /> Confidence: {ocrResult.confidence}%
                           </span>
-                        )}
-                      </div>
-                    )}
+                          {ocrResult.pages && (
+                            <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                              {ocrResult.pages} page(s)
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {uploadStatus === 'error' && errorDetails && (
+                        <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded-md">
+                          <p className="text-sm text-red-700 flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            {errorDetails}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {uploadStatus === 'processing' && (
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                  )}
-                  {uploadStatus === 'success' && (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  )}
-                  {uploadStatus === 'error' && (
-                    <AlertCircle className="w-5 h-5 text-red-500" />
-                  )}
-                  <button 
-                    onClick={resetUpload}
-                    className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-200"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  
+                  <div className="flex items-center gap-2 ml-2">
+                    {uploadStatus === 'processing' && (
+                      <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                    )}
+                    {uploadStatus === 'success' && (
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    )}
+                    {uploadStatus === 'error' && (
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                    )}
+                    <button 
+                      onClick={resetUpload}
+                      className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-200"
+                      title="Clear file"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             )}
