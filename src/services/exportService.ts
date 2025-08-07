@@ -16,6 +16,43 @@ export const exportToJson = (data: AnalysisResult, fileName: string = 'analysis_
   URL.revokeObjectURL(url);
 };
 
+// Function to add watermark to PDF pages
+const addWatermark = (doc: jsPDF) => {
+  const pageCount = doc.getNumberOfPages();
+  
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    
+    // Save the current graphics state
+    doc.saveGraphicsState();
+    
+    // Set transparency for watermark
+    doc.setGState({ opacity: 0.07 });
+    
+    // Add text watermark
+    doc.setFontSize(30);
+    doc.setTextColor(150, 150, 150);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Add "Clarity OCR" watermark at an angle
+    // Using a simpler approach to avoid the equals method error
+    doc.text('Clarity OCR', pageWidth / 2, pageHeight / 2, { 
+      angle: 45, 
+      align: 'center'
+    });
+    
+    // Restore the graphics state
+    doc.restoreGraphicsState();
+    
+    // Add logo in the footer (placeholder for now)
+    // In a real implementation, you would use doc.addImage with the actual logo
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Clarity OCR', pageWidth / 2, pageHeight - 10, { align: 'center' });
+  }
+};
+
 export const exportToPdf = (data: AnalysisResult, fileName: string = 'analysis_result') => {
   const doc = new jsPDF();
   
@@ -37,10 +74,16 @@ export const exportToPdf = (data: AnalysisResult, fileName: string = 'analysis_r
     doc.text('Project Summary', 20, 70);
     
     doc.setFontSize(12);
-    doc.text(data.summary.projectDescription, 20, 80, { maxWidth: 170 });
+    // Handle long text by splitting it into multiple lines
+    const lines = doc.splitTextToSize(data.summary.projectDescription, 170);
+    let yPos = 80;
+    lines.forEach(line => {
+      doc.text(line, 20, yPos);
+      yPos += 5;
+    });
     
     // Add milestones
-    let yPos = 95;
+    yPos += 5;
     doc.setFontSize(14);
     doc.text('Key Milestones', 20, yPos);
     yPos += 10;
@@ -53,9 +96,10 @@ export const exportToPdf = (data: AnalysisResult, fileName: string = 'analysis_r
   }
   
   // Add task groups
-  let currentY = data.summary ? 140 : 80;
+  let currentY = data.summary ? 140 + (data.summary.projectDescription.length > 50 ? 20 : 0) + (data.summary.milestones.length * 7) : 80;
   
   data.groups.forEach((group, groupIndex) => {
+    // Check if we need a new page
     if (currentY > 250) {
       doc.addPage();
       currentY = 20;
@@ -69,8 +113,13 @@ export const exportToPdf = (data: AnalysisResult, fileName: string = 'analysis_r
     
     doc.setFontSize(12);
     doc.setTextColor(100);
-    doc.text(group.description, 20, currentY);
-    currentY += 15;
+    // Handle long group description
+    const groupDescLines = doc.splitTextToSize(group.description, 170);
+    groupDescLines.forEach(line => {
+      doc.text(line, 20, currentY);
+      currentY += 5;
+    });
+    currentY += 5;
     
     // Tasks table
     const tableData = group.tasks.map(task => [
@@ -93,6 +142,14 @@ export const exportToPdf = (data: AnalysisResult, fileName: string = 'analysis_r
     // @ts-ignore
     currentY = (doc as any).lastAutoTable.finalY + 15;
   });
+  
+  // Add watermark to all pages
+  try {
+    addWatermark(doc);
+  } catch (error) {
+    console.error('Error adding watermark:', error);
+    // Continue without watermark if it fails
+  }
   
   // Save the PDF
   doc.save(`${fileName}.pdf`);
