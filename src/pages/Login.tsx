@@ -1,12 +1,4 @@
 // src/pages/Login.tsx
-/**
- * @fileoverview Enhanced Login Page Component for Clarify OCR.
- *
- * This component renders the user login interface, handling both email/password
- * authentication and Google Sign-In. It includes robust form validation,
- * comprehensive error handling, loading states, and a fallback mechanism for
- * Google Sign-In popup blockers using redirects.
- */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 // UI Components and Libraries
