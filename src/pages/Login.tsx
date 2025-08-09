@@ -630,6 +630,7 @@ export default function Login() {
 >
   Forgot password?
 </Link>
+
                 {/* Login Button */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
