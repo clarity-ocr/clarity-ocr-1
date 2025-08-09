@@ -10,6 +10,8 @@ import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import Index from "@/pages/Index";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import History from './pages/History'; 
+import SharedAnalysis from './pages/SharedAnalysis';
 
 // Logo display component
 const LogoDisplay: React.FC = () => {
@@ -54,6 +56,8 @@ const App: React.FC = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/logoback" element={<LogoDisplay />} />
+        <Route path="/history" element={<History />} />
+        <Route path="/shared/:entryId" element={<SharedAnalysis />} />
       </Routes>
     </BrowserRouter>
   );

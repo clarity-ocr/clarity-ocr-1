@@ -35,13 +35,17 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { exportToJson, exportToPdf, exportToCsv } from '@/services/exportService';
 import { AnalysisResult, TaskItem, TaskGroup } from '@/types/task';
+// Import history functions
+import { addToHistory, generateShareableLink } from '@/services/historyService';
+import { TaskChecklist } from '@/components/TaskChecklist';
 
 interface ChecklistPageProps {
   analysisResult: AnalysisResult;
   onBack: () => void;
+  fileName?: string; // Accept filename as prop
 }
 
-export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) => {
+export const ChecklistPage = ({ analysisResult, onBack, fileName }: ChecklistPageProps) => {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,22 +58,33 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
   const [location, setLocation] = useState<string | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
-  // Initialize tasks and assignees
+  // --- ADDITIONS FOR SHARING ---
+  const [isSharing, setIsSharing] = useState(false);
+  const [selectedTasksForSharing, setSelectedTasksForSharing] = useState<Record<string, boolean>>({});
+  // --- END ADDITIONS ---
+
+  // Initialize tasks, assignees, and save to history
   useEffect(() => {
     const allTasks: TaskItem[] = analysisResult.groups.flatMap(group => group.tasks);
     setTasks(allTasks);
     
-    // Extract unique assignees
     const assignees = Array.from(new Set(allTasks.map(task => task.assignee).filter(Boolean))) as string[];
     setUniqueAssignees(assignees);
     
-    // Initialize expanded groups
     const initialExpanded: Record<string, boolean> = {};
     analysisResult.groups.forEach(group => {
       initialExpanded[group.id] = true;
     });
     setExpandedGroups(initialExpanded);
-  }, [analysisResult]);
+
+    // --- SAVE TO HISTORY ON LOAD (IF NOT FROM SHARED/HISTORY VIEW) ---
+    // Check if we are NOT on a shared/history route before saving
+    if (!window.location.pathname.startsWith('/shared/') && !window.location.pathname.startsWith('/history/')) {
+      console.log("[ChecklistPage] Saving analysis result to history.");
+      addToHistory(analysisResult, fileName); // Pass the filename
+    }
+    // --- END ADDITION ---
+  }, [analysisResult, fileName]); // Add fileName to dependency array
 
   // Get user location
   const getLocation = () => {
@@ -103,8 +118,67 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
     }
   };
 
-  // Share on WhatsApp
+  // --- ADDITIONS FOR SHARING ---
+  const handleShareSelection = () => {
+    setIsSharing(!isSharing);
+    // Reset selection when closing share mode
+    if (isSharing) {
+      setSelectedTasksForSharing({});
+    }
+  };
+
+  const toggleTaskSelectionForSharing = (taskId: string) => {
+    setSelectedTasksForSharing(prev => ({
+      ...prev,
+      [taskId]: !prev[taskId]
+    }));
+  };
+
+  const shareSelectedOnWhatsApp = () => {
+    const selectedTaskIds = Object.keys(selectedTasksForSharing).filter(id => selectedTasksForSharing[id]);
+    if (selectedTaskIds.length === 0) {
+      alert("Please select at least one task to share.");
+      return;
+    }
+
+    const selectedTasks = tasks.filter(task => selectedTaskIds.includes(task.id));
+
+    let message = `*Shared Tasks from Clarity OCR*\n\n`;
+    message += `Document: ${fileName || 'Untitled'}\n`;
+    message += `Date: ${new Date().toLocaleString()}\n\n`;
+
+    selectedTasks.forEach(task => {
+      const status = task.completed ? "[✓]" : "[ ]";
+      message += `${status} ${task.content}\n`;
+      if (task.subtasks && task.subtasks.length > 0) {
+        task.subtasks.forEach(st => {
+          const stStatus = st.completed ? "  ✓" : "  ○";
+          message += `  ${stStatus} ${st.content}\n`;
+        });
+      }
+      message += "\n";
+    });
+
+    // Add a link to the full analysis if needed
+    // const link = generateShareableLink(analysisResult.id); // Requires analysisResult.id or a generated one
+    // message += `\nView full analysis: ${link}`;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    setIsSharing(false);
+    setSelectedTasksForSharing({});
+  };
+  // --- END ADDITIONS ---
+
+  // Share on WhatsApp (modified to handle sharing selected tasks or summary)
   const shareOnWhatsApp = () => {
+    // If in sharing mode, share selected tasks
+    if (isSharing) {
+        shareSelectedOnWhatsApp();
+        return;
+    }
+
+    // Otherwise, share summary (existing logic)
     const totalTasks = analysisResult.totalTasks;
     const completedTasks = tasks.filter(task => task.completed).length;
     const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -115,7 +189,7 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
       `Progress: ${progressPercentage}%\n\n` +
       `Categories: ${analysisResult.groups.length}\n` +
       `Generated by Clarity OCR AI 🇮🇳\n\n` +
-      `View details: ${window.location.href}`;
+      `View details: ${window.location.href}`; // Note: This link won't work for history items directly if it's a client-side route
     
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
@@ -312,7 +386,7 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary/10">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Header */}
+        {/* Header - Modified to include Share button */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
           <Button 
             variant="outline" 
@@ -323,6 +397,19 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
             Back to Upload
           </Button>
           <div className="flex flex-wrap gap-2 justify-center w-full sm:w-auto">
+            {/* --- CONDITIONAL SHARE BUTTON --- */}
+            <Button 
+              variant={isSharing ? "default" : "outline"} 
+              size="sm"
+              onClick={handleShareSelection}
+              className={`flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 ${
+                isSharing ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''
+              }`}
+            >
+              <Share2 className="w-4 h-4" />
+              {isSharing ? 'Cancel Share' : 'Share Tasks'}
+            </Button>
+            {/* --- END ADDITION --- */}
             <Button 
               variant="outline" 
               size="sm"
@@ -356,11 +443,11 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
             <Button 
               variant="outline" 
               size="sm"
-              onClick={shareOnWhatsApp}
+              onClick={shareOnWhatsApp} // This now handles both modes
               className="flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
             >
               <Share2 className="w-4 h-4" />
-              WhatsApp
+              {isSharing ? 'Share Selected' : 'WhatsApp Summary'}
             </Button>
           </div>
         </div>
@@ -495,7 +582,7 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
               </div>
             </div>
             
-            {/* Task Groups */}
+            {/* Task Groups - Modified to include checkboxes for sharing */}
             <div className="space-y-6">
               {Object.entries(groupedTasks).map(([groupId, groupTasks]) => {
                 const group = getGroupById(groupId);
@@ -507,9 +594,10 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
                 return (
                   <div key={group.id}>
                     <Card className="overflow-hidden shadow-lg rounded-2xl border-primary/20">
+                      {/* Group Header - Disable collapse in share mode */}
                       <div 
                         className="p-4 sm:p-5 bg-gradient-to-r from-secondary/50 to-primary/10 cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
-                        onClick={() => toggleGroup(group.id)}
+                        onClick={() => !isSharing && toggleGroup(group.id)} 
                       >
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-primary/20">
@@ -547,20 +635,32 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
                                 }`}
                               >
                                 <div className="flex items-start gap-3">
-                                  <div className="flex flex-col items-center">
+                                  {/* --- CONDITIONAL RENDERING BASED ON SHARE MODE --- */}
+                                  {isSharing ? (
+                                    // Sharing Checkbox
                                     <Checkbox
-                                      checked={task.completed}
-                                      onCheckedChange={() => toggleTaskCompletion(task.id)}
-                                      className={`mt-1 w-5 h-5 rounded-full ${
-                                        task.completed 
-                                          ? 'bg-green-500 border-green-500 data-[state=checked]:text-white' 
-                                          : 'border-primary'
-                                      }`}
+                                      checked={!!selectedTasksForSharing[task.id]}
+                                      onCheckedChange={() => toggleTaskSelectionForSharing(task.id)}
+                                      className="mt-1 w-5 h-5 rounded-full border-primary data-[state=checked]:bg-primary data-[state=checked]:text-white"
                                     />
-                                    {task.completed && (
-                                      <CheckCircle className="w-5 h-5 text-green-500 mt-1" />
-                                    )}
-                                  </div>
+                                  ) : (
+                                    // Regular Completion Checkbox
+                                    <div className="flex flex-col items-center">
+                                      <Checkbox
+                                        checked={task.completed}
+                                        onCheckedChange={() => toggleTaskCompletion(task.id)}
+                                        className={`mt-1 w-5 h-5 rounded-full ${
+                                          task.completed 
+                                            ? 'bg-green-500 border-green-500 data-[state=checked]:text-white' 
+                                            : 'border-primary'
+                                        }`}
+                                      />
+                                      {task.completed && (
+                                        <CheckCircle className="w-5 h-5 text-green-500 mt-1" />
+                                      )}
+                                    </div>
+                                  )}
+                                  {/* --- END CONDITIONAL RENDERING --- */}
                                   <div className="flex-1">
                                     <p className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                                       {task.content}
@@ -572,11 +672,21 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
                                         <p className="text-sm font-medium text-muted-foreground">Subtasks:</p>
                                         {task.subtasks.map((subtask) => (
                                           <div key={subtask.id} className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                                            <Checkbox
-                                              checked={subtask.completed}
-                                              onCheckedChange={() => toggleSubtaskCompletion(task.id, subtask.id)}
-                                              className="mt-0.5 w-4 h-4 rounded"
-                                            />
+                                            {/* --- SUBTASK CHECKBOX ALSO CHANGES IN SHARE MODE --- */}
+                                            {isSharing ? (
+                                              <Checkbox
+                                                checked={!!selectedTasksForSharing[subtask.id]} // Assuming subtask IDs are unique
+                                                onCheckedChange={() => toggleTaskSelectionForSharing(subtask.id)}
+                                                className="mt-0.5 w-4 h-4 rounded border-primary data-[state=checked]:bg-primary data-[state=checked]:text-white"
+                                              />
+                                            ) : (
+                                              <Checkbox
+                                                checked={subtask.completed}
+                                                onCheckedChange={() => toggleSubtaskCompletion(task.id, subtask.id)}
+                                                className="mt-0.5 w-4 h-4 rounded"
+                                              />
+                                            )}
+                                            {/* --- END CHANGE --- */}
                                             <p className={`text-sm ${subtask.completed ? 'line-through text-muted-foreground' : ''}`}>
                                               {subtask.content}
                                             </p>
@@ -643,6 +753,7 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
                 );
               })}
             </div>
+            {/* --- END MODIFICATIONS --- */}
           </>
         ) : (
           /* Summary Section */
@@ -808,4 +919,4 @@ export const ChecklistPage = ({ analysisResult, onBack }: ChecklistPageProps) =>
       </div>
     </div>
   );
-};
+}; 
