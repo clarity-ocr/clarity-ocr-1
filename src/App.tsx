@@ -10,8 +10,21 @@ import Register from "@/pages/Register";
 import ForgotPassword from '@/pages/ForgotPassword'; 
 import ResetPassword from '@/pages/ResetPassword';
 import Index from "@/pages/Index";
-import Logo from "@/pages/logoback.png";
+import LogoImage from "@/pages/logoback.png";
 import ProtectedRoute from "@/components/ProtectedRoute";
+
+const LogoOnly: React.FC = () => {
+  return (
+    <div className="flex items-center justify-center p-4 bg-white">
+      <img 
+        src={LogoImage} 
+        alt="Clarify OCR Logo" 
+        className="h-12 w-auto"
+      />
+    </div>
+  );
+};
+
 
 const App: React.FC = () => {
   const [user, setUser] = useState<any | null>(null);
@@ -42,7 +55,7 @@ const App: React.FC = () => {
         <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/logoback" element={<Logo />} />
+        <Route path="/logo" element={<LogoOnly />} />
       </Routes>
     </BrowserRouter>
   );
