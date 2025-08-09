@@ -10,6 +10,7 @@ import Register from "@/pages/Register";
 import ForgotPassword from '@/pages/ForgotPassword'; 
 import ResetPassword from '@/pages/ResetPassword';
 import Index from "@/pages/Index";
+import Logo from "@/pages/logoback.png";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 const App: React.FC = () => {
@@ -41,6 +42,7 @@ const App: React.FC = () => {
         <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/logoback" element={<Logo />} />
       </Routes>
     </BrowserRouter>
   );
