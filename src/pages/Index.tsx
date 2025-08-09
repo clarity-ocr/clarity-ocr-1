@@ -1,18 +1,38 @@
-import { useState } from 'react';
-import { Eye, Sparkles, Zap, FileText, Target, Clock, Menu, X, FileImage, File, User, Info, Shield, ArrowLeft, LogOut } from 'lucide-react';
+// src/pages/Index.tsx
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Eye,
+  Sparkles,
+  Zap,
+  FileText,
+  Target,
+  Clock,
+  Menu,
+  X,
+  FileImage,
+  File,
+  User,
+  Info,
+  Shield,
+  ArrowLeft,
+  LogOut,
+  History as HistoryIcon, // Import the History icon
+  Loader2
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/FileUpload';
-import { ChecklistPage } from '@/pages/Checklist';
+// import { ChecklistPage } from '@/pages/Checklist'; // Assuming ChecklistPage is rendered via route now
 import { analyzeDocument } from '@/services/aiAnalysis';
 import { AnalysisResult } from '@/types/task';
 import { useToast } from '@/hooks/use-toast';
+// Firebase Auth
 import { signOut } from 'firebase/auth';
 import { auth } from '@/firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
-// Page Components
+// Page Component Placeholders (These would be separate files in a full app)
 const FeaturesPage = ({ onBack }: { onBack: () => void }) => {
   const features = [
     {
@@ -38,20 +58,9 @@ const FeaturesPage = ({ onBack }: { onBack: () => void }) => {
       title: "Lightning Fast Processing",
       description: "Optimized algorithms and parallel processing ensure quick results even for large documents.",
       benefits: ["Real-time processing", "Batch processing", "Cloud acceleration", "Scalable architecture"]
-    },
-    {
-      icon: FileText,
-      title: "Multi-Format Support",
-      description: "Support for a wide range of document formats including PDFs, images, Word documents, and plain text.",
-      benefits: ["PDF processing", "Image OCR", "Document parsing", "Text extraction"]
-    },
-    {
-      icon: User,
-      title: "User-Friendly Interface",
-      description: "Intuitive design that makes it easy to upload, analyze, and manage extracted tasks and information.",
-      benefits: ["Drag & drop", "Progress tracking", "Export options", "Mobile responsive"]
     }
   ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Navigation Bar */}
@@ -59,8 +68,8 @@ const FeaturesPage = ({ onBack }: { onBack: () => void }) => {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={onBack}
                 className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -69,7 +78,12 @@ const FeaturesPage = ({ onBack }: { onBack: () => void }) => {
                 Back
               </Button>
               <div className="flex items-center gap-3">
-                <img src="/icon.png" alt="Clarity OCR Logo" className="h-8 w-8 rounded-lg" />
+                <div className="relative">
+                  <div className="gradient-primary p-2.5 rounded-xl shadow-lg">
+                    <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
+                </div>
                 <div>
                   <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                     Clarity OCR
@@ -83,6 +97,7 @@ const FeaturesPage = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
       </nav>
+
       <div className="container mx-auto px-4 py-16 max-w-6xl">
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -128,7 +143,9 @@ const AboutPage = ({ onBack }: { onBack: () => void }) => {
       role: "Founder & Developer",
       bio: "Gmail : jeevasurya.global@gmail.com"
     },
+    // Add more team members as needed
   ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Navigation Bar */}
@@ -136,8 +153,8 @@ const AboutPage = ({ onBack }: { onBack: () => void }) => {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={onBack}
                 className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -146,7 +163,12 @@ const AboutPage = ({ onBack }: { onBack: () => void }) => {
                 Back
               </Button>
               <div className="flex items-center gap-3">
-                <img src="/icon.png" alt="Clarity OCR Logo" className="h-8 w-8 rounded-lg" />
+                <div className="relative">
+                  <div className="gradient-primary p-2.5 rounded-xl shadow-lg">
+                    <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
+                </div>
                 <div>
                   <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                     Clarity OCR
@@ -160,6 +182,7 @@ const AboutPage = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
       </nav>
+
       <div className="container mx-auto px-4 py-16 max-w-6xl">
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -169,6 +192,7 @@ const AboutPage = ({ onBack }: { onBack: () => void }) => {
             We're passionate about transforming how businesses process documents with cutting-edge AI technology.
           </p>
         </div>
+
         <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
           <div>
             <h2 className="text-3xl font-bold mb-6 text-slate-800 dark:text-slate-200">Our Mission</h2>
@@ -187,6 +211,7 @@ const AboutPage = ({ onBack }: { onBack: () => void }) => {
             </div>
           </div>
         </div>
+
         <div className="mb-16">
           <h2 className="text-3xl font-bold mb-8 text-center text-slate-800 dark:text-slate-200">Our Values</h2>
           <div className="grid md:grid-cols-3 gap-8">
@@ -213,6 +238,7 @@ const AboutPage = ({ onBack }: { onBack: () => void }) => {
             </Card>
           </div>
         </div>
+
         <div>
           <h2 className="text-3xl font-bold mb-8 text-center text-slate-800 dark:text-slate-200">Meet Our Team</h2>
           <div className="grid md:grid-cols-3 gap-8">
@@ -241,8 +267,8 @@ const TermsPage = ({ onBack }: { onBack: () => void }) => {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={onBack}
                 className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -251,7 +277,12 @@ const TermsPage = ({ onBack }: { onBack: () => void }) => {
                 Back
               </Button>
               <div className="flex items-center gap-3">
-                <img src="/icon.png" alt="Clarity OCR Logo" className="h-8 w-8 rounded-lg" />
+                <div className="relative">
+                  <div className="gradient-primary p-2.5 rounded-xl shadow-lg">
+                    <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
+                </div>
                 <div>
                   <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                     Clarity OCR
@@ -265,6 +296,7 @@ const TermsPage = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
       </nav>
+
       <div className="container mx-auto px-4 py-16 max-w-4xl">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -346,8 +378,8 @@ const PrivacyPage = ({ onBack }: { onBack: () => void }) => {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={onBack}
                 className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -356,7 +388,12 @@ const PrivacyPage = ({ onBack }: { onBack: () => void }) => {
                 Back
               </Button>
               <div className="flex items-center gap-3">
-                <img src="/icon.png" alt="Clarity OCR Logo" className="h-8 w-8 rounded-lg" />
+                <div className="relative">
+                  <div className="gradient-primary p-2.5 rounded-xl shadow-lg">
+                    <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
+                </div>
                 <div>
                   <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                     Clarity OCR
@@ -370,6 +407,7 @@ const PrivacyPage = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
       </nav>
+
       <div className="container mx-auto px-4 py-16 max-w-4xl">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -449,6 +487,7 @@ const PrivacyPage = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
+// Main Index Component
 const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -456,55 +495,49 @@ const Index = () => {
   const [progress, setProgress] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // State for logout
 
-  // Handle logout function
-  const handleLogout = async () => {
-    try {
-      setIsLoggingOut(true);
-      await signOut(auth);
-      
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your account",
-        duration: 3000
-      });
-      
-      // Redirect to login page
-      navigate('/login');
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast({
-        title: "Logout failed",
-        description: "There was an error logging out. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoggingOut(false);
+  const { toast } = useToast();
+  const navigate = useNavigate(); // Hook for navigation
+
+  // Enhanced AI features
+  const aiFeatures = [
+    {
+      icon: Eye,
+      title: "Advanced OCR",
+      description: "State-of-the-art text recognition for any document type"
+    },
+    {
+      icon: Target,
+      title: "Smart Analysis",
+      description: "AI-powered content understanding and task extraction"
+    },
+    {
+      icon: Clock,
+      title: "Time Estimation",
+      description: "ML-powered duration prediction for each task"
+    },
+    {
+      icon: Zap,
+      title: "Lightning Fast",
+      description: "Instant results with parallel processing"
     }
-  };
+  ];
 
   const handleAnalyze = async (content: string, fileName?: string) => {
     try {
       setIsAnalyzing(true);
       setProgress(0);
-      
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
         setProgress(prev => Math.min(prev + 10, 90));
       }, 200);
-      
       const result = await analyzeDocument(content, fileName);
-      
       clearInterval(progressInterval);
       setProgress(100);
-      
       setTimeout(() => {
         setAnalysisResult(result);
         setCurrentView('checklist');
-        
         toast({
           title: "Analysis complete! 🎉",
           description: `Found ${result.totalTasks} tasks across ${result.groups.length} categories.`,
@@ -534,51 +567,43 @@ const Index = () => {
     window.scrollTo(0, 0);
   };
 
-  // Enhanced AI features
-  const aiFeatures = [
-    {
-      icon: Eye,
-      title: "Advanced OCR",
-      description: "State-of-the-art text recognition for any document type"
-    },
-    {
-      icon: Target,
-      title: "Smart Analysis",
-      description: "AI-powered content understanding and task extraction"
-    },
-    {
-      icon: Clock,
-      title: "Time Estimation",
-      description: "ML-powered duration prediction for each task"
-    },
-    {
-      icon: Zap,
-      title: "Lightning Fast",
-      description: "Instant results with parallel processing"
+  // Handle logout function
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await signOut(auth);
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account",
+        duration: 3000
+      });
+      // Redirect to login page
+      navigate('/login');
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Logout failed",
+        description: "There was an error logging out. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoggingOut(false);
     }
-  ];
+  };
 
   // Render the appropriate page based on currentView
+  // This logic assumes ChecklistPage is rendered via a route like /checklist
   if (currentView === 'checklist' && analysisResult) {
-    return (
-      <ChecklistPage 
-        analysisResult={analysisResult}
-        onBack={handleBackToUpload}
-      />
-    );
+    // This part is now handled by routing, so we don't render ChecklistPage directly here anymore.
+    // The checklist route will render ChecklistPage with the analysisResult passed as props.
+    // For demonstration, we keep the conditional logic but it's effectively unused.
+    // In a real app, you'd remove this block if using dedicated routes.
+    console.warn("Checklist view is managed by routing, not direct render in Index.tsx");
   }
-  if (currentView === 'features') {
-    return <FeaturesPage onBack={() => navigateTo('upload')} />;
-  }
-  if (currentView === 'about') {
-    return <AboutPage onBack={() => navigateTo('upload')} />;
-  }
-  if (currentView === 'terms') {
-    return <TermsPage onBack={() => navigateTo('upload')} />;
-  }
-  if (currentView === 'privacy') {
-    return <PrivacyPage onBack={() => navigateTo('upload')} />;
-  }
+  if (currentView === 'features') { return <FeaturesPage onBack={() => navigateTo('upload')} />; }
+  if (currentView === 'about') { return <AboutPage onBack={() => navigateTo('upload')} />; }
+  if (currentView === 'terms') { return <TermsPage onBack={() => navigateTo('upload')} />; }
+  if (currentView === 'privacy') { return <PrivacyPage onBack={() => navigateTo('upload')} />; }
 
   // Main upload page
   return (
@@ -596,7 +621,7 @@ const Index = () => {
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
               </div>
               <div className="transform transition-transform duration-300 group-hover:scale-105">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Clarity OCR
                 </h1>
                 <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
@@ -604,76 +629,80 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-6">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => navigateTo('features')}
-              >
-                Features
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => navigateTo('about')}
-              >
-                About
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => navigateTo('terms')}
-              >
-                Terms
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => navigateTo('privacy')}
-              >
-                Privacy
-              </Button>
-              
-              {/* Logout Button */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:hover:bg-red-900/20 dark:hover:text-red-400 dark:hover:border-red-800"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-              >
-                {isLoggingOut ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Logging out...
-                  </>
-                ) : (
-                  <>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
-                  </>
-                )}
-              </Button>
-            </div>
-            
             {/* Mobile Menu Button */}
-            <button 
+            <button
               className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                onClick={() => navigateTo('features')}
+              >
+                Features
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                onClick={() => navigateTo('about')}
+              >
+                About
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                onClick={() => navigateTo('terms')}
+              >
+                Terms
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                onClick={() => navigateTo('privacy')}
+              >
+                Privacy
+              </Button>
+              {/* --- ADD HISTORY LINK TO DESKTOP NAV --- */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-2"
+                onClick={() => navigate('/history')} // Navigate to /history
+              >
+                <HistoryIcon className="w-4 h-4" />
+                History
+              </Button>
+              {/* --- END ADDITION --- */}
+              {/* Logout Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-2"
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Logging out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-          
           {/* Mobile Navigation Menu */}
           {mobileMenuOpen && (
             <div className="md:hidden mt-4 pb-4 space-y-2 animate-fade-in">
@@ -689,26 +718,39 @@ const Index = () => {
               <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => navigateTo('privacy')}>
                 Privacy
               </Button>
-              
-              {/* Mobile Logout Button */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full justify-start text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:hover:bg-red-900/20 dark:hover:text-red-400 dark:hover:border-red-800"
-                onClick={handleLogout}
+              {/* --- ADD HISTORY LINK FOR MOBILE --- */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start flex items-center gap-2"
+                onClick={() => {
+                  navigate('/history');
+                  setMobileMenuOpen(false); // Close menu after click
+                }}
+              >
+                <HistoryIcon className="w-4 h-4" />
+                History
+              </Button>
+              {/* --- END ADDITION --- */}
+              {/* Logout Button for Mobile */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  handleLogout();
+                  setMobileMenuOpen(false); // Close menu after click
+                }}
                 disabled={isLoggingOut}
+                className="w-full justify-start text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-2"
               >
                 {isLoggingOut ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Logging out...
                   </>
                 ) : (
                   <>
-                    <LogOut className="w-4 h-4 mr-2" />
+                    <LogOut className="w-4 h-4" />
                     Logout
                   </>
                 )}
@@ -717,9 +759,9 @@ const Index = () => {
           )}
         </div>
       </nav>
-      
-      {/* Hero Section */}
-      <div className="container mx-auto px-4 py-8 md:py-16 max-w-6xl">
+
+   {/* Hero Section */}
+   <div className="container mx-auto px-4 py-8 md:py-16 max-w-6xl">
         <div className="text-center mb-12 md:mb-16">
           <div className="flex items-center justify-center gap-2 mb-6 animate-fade-in">
             <div className="gradient-primary p-3 rounded-2xl shadow-glow transform transition-transform hover:scale-110 hover:rotate-6">
