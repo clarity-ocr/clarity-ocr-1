@@ -9,46 +9,19 @@ import Register from "@/pages/Register";
 import ForgotPassword from '@/pages/ForgotPassword'; 
 import ResetPassword from '@/pages/ResetPassword';
 import Index from "@/pages/Index";
-import LogoImage from "@/pages/logoback.png";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-// Logo display component for email templates - returns just the image
-const LogoOnly: React.FC = () => {
+// Logo display component
+const LogoDisplay: React.FC = () => {
   return (
-    <div className="flex items-center justify-center p-4 bg-white">
+    <div className="flex items-center justify-center min-h-screen bg-white p-4">
       <img 
-        src={LogoImage} 
+        src="/logoback.png" 
         alt="Clarify OCR Logo" 
-        className="h-12 w-auto"
+        className="max-w-full max-h-full"
       />
     </div>
   );
-};
-
-// Logo direct image component - returns the image directly
-const LogoDirect: React.FC = () => {
-  // This component will return just the image without any HTML wrapper
-  // We'll use a useEffect to replace the entire document content with the image
-  useEffect(() => {
-    // Create a new image element
-    const img = new Image();
-    img.src = LogoImage;
-    img.alt = "Clarify OCR Logo";
-    img.style.display = "block";
-    img.style.margin = "0 auto";
-    
-    // Clear the document and append the image
-    document.body.innerHTML = "";
-    document.body.appendChild(img);
-    document.body.style.backgroundColor = "white";
-    document.body.style.margin = "0";
-    document.body.style.padding = "0";
-    
-    // Set the content type header if possible (client-side limitation)
-    // Note: This won't actually change the HTTP header, but it's the best we can do client-side
-  }, []);
-  
-  return null;
 };
 
 const App: React.FC = () => {
@@ -80,8 +53,7 @@ const App: React.FC = () => {
         <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/logo" element={<LogoOnly />} />
-        <Route path="/logo-direct" element={<LogoDirect />} />
+        <Route path="/logoback" element={<LogoDisplay />} />
       </Routes>
     </BrowserRouter>
   );
