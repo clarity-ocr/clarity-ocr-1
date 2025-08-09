@@ -7,6 +7,8 @@ import { auth } from "@/firebase";
 
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import ForgotPassword from '@/pages/ForgotPassword'; 
+import ResetPassword from '@/pages/ResetPassword';
 import Index from "@/pages/Index";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -37,6 +39,8 @@ const App: React.FC = () => {
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
         <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </BrowserRouter>
   );

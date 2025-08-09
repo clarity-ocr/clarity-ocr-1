@@ -104,10 +104,10 @@ export default function Login() {
   useEffect(() => {
     const animateBackground = async () => {
       await backgroundControls.start({
-        opacity: [0.3, 0.6, 0.3],
-        y: [0, -20, 0],
+        opacity: [0.2, 0.4, 0.2],
+        y: [0, -15, 0],
         transition: {
-          duration: 8,
+          duration: 10,
           repeat: Infinity,
           ease: "easeInOut",
         },
@@ -365,15 +365,15 @@ export default function Login() {
       {/* Subtle Animated Background Elements */}
       <motion.div
         animate={backgroundControls}
-        className="absolute top-1/4 left-1/4 w-64 h-64 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-30"
+        className="absolute top-1/4 left-1/4 w-64 h-64 bg-orange-200 rounded-full mix-blend-multiply opacity-20"
       />
       <motion.div
         animate={backgroundControls}
-        className="absolute top-3/4 right-1/4 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-30"
+        className="absolute top-3/4 right-1/4 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply opacity-20"
       />
       <motion.div
         animate={backgroundControls}
-        className="absolute bottom-1/4 left-1/2 w-56 h-56 bg-indigo-200 rounded-full mix-blend-multiply filter blur-xl opacity-30"
+        className="absolute bottom-1/4 left-1/2 w-56 h-56 bg-indigo-200 rounded-full mix-blend-multiply opacity-20"
       />
       <motion.div
         ref={cardRef}
@@ -410,7 +410,7 @@ export default function Login() {
                 }}
                 transition={{ duration: 10, repeat: Infinity, repeatType: "reverse" }}
               />
-              <div className="relative p-8 text-center z-10">
+              <div className="relative p-6 sm:p-8 text-center z-10">
                 <motion.div
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
@@ -418,32 +418,32 @@ export default function Login() {
                   className="flex justify-center mb-4"
                 >
                   <img
-                    src="/logo.png" // Ensure your logo is at public/logo.png
+                    src="/icon.png" // Ensure your logo is at public/logo.png
                     alt="Clarify OCR Logo"
-                    className="h-20 w-auto drop-shadow-lg"
+                    className="h-16 w-auto drop-shadow-lg"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.onerror = null;
                       target.style.display = 'none';
-                      console.warn("[Clarify OCR Login] Failed to load logo at /logo.png");
+                      console.warn("[Clarify OCR Login] Failed to load logo at /icon.png");
                     }}
                   />
                 </motion.div>
-                <CardTitle className="text-4xl font-extrabold text-white drop-shadow-md">
+                <CardTitle className="text-3xl sm:text-4xl font-extrabold text-white drop-shadow-md">
                   Clarify OCR
                 </CardTitle>
-                <CardDescription className="text-blue-100 mt-3 flex items-center justify-center text-base">
-                  <ShieldAlert className="h-5 w-5 mr-2" />
+                <CardDescription className="text-blue-100 mt-3 flex items-center justify-center text-sm sm:text-base">
+                  <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Secure & Modern Login
                 </CardDescription>
               </div>
             </div>
-            <CardHeader className="space-y-2 pt-8">
-              <CardTitle className="text-2xl font-bold text-center text-gray-800">
+            <CardHeader className="space-y-2 pt-6 sm:pt-8">
+              <CardTitle className="text-xl sm:text-2xl font-bold text-center text-gray-800">
                 Sign in to your account
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 sm:px-6">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Email Input */}
                 <motion.div
@@ -453,7 +453,7 @@ export default function Login() {
                   transition={{ delay: 0.3 }}
                 >
                   <Label htmlFor="email" className="text-gray-700 flex items-center font-medium">
-                    <Mail className="h-5 w-5 mr-2 flex-shrink-0" />
+                    <Mail className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0" />
                     Email Address
                   </Label>
                   <div className="relative">
@@ -466,7 +466,7 @@ export default function Login() {
                         setEmail(e.target.value);
                         clearFieldError('email');
                       }}
-                      className={`pl-12 py-3 text-base rounded-xl border-2 transition-all duration-300 ${
+                      className={`pl-10 sm:pl-12 py-3 text-base rounded-xl border-2 transition-all duration-300 ${
                         errors.email
                           ? "border-red-500 focus:ring-0"
                           : isFocused.email
@@ -480,7 +480,7 @@ export default function Login() {
                       onFocus={() => setIsFocused({ ...isFocused, email: true })}
                       onBlur={() => setIsFocused({ ...isFocused, email: false })}
                     />
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                   </div>
                   <AnimatePresence>
                     {errors.email && (
@@ -506,7 +506,7 @@ export default function Login() {
                 >
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-gray-700 flex items-center font-medium">
-                      <Lock className="h-5 w-5 mr-2 flex-shrink-0" />
+                      <Lock className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0" />
                       Password
                     </Label>
                     <Link
@@ -525,7 +525,7 @@ export default function Login() {
                         setPassword(e.target.value);
                         clearFieldError('password');
                       }}
-                      className={`pl-12 pr-12 py-3 text-base rounded-xl border-2 transition-all duration-300 ${
+                      className={`pl-10 sm:pl-12 pr-12 py-3 text-base rounded-xl border-2 transition-all duration-300 ${
                         errors.password
                           ? "border-red-500 focus:ring-0"
                           : isFocused.password
@@ -540,7 +540,7 @@ export default function Login() {
                       onFocus={() => setIsFocused({ ...isFocused, password: true })}
                       onBlur={() => setIsFocused({ ...isFocused, password: false })}
                     />
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                     <button
                       type="button"
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700"
@@ -549,7 +549,7 @@ export default function Login() {
                       aria-pressed={showPassword}
                       disabled={loadingState !== 'idle'}
                     >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showPassword ? <EyeOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Eye className="h-4 w-4 sm:h-5 sm:w-5" />}
                     </button>
                   </div>
                   {/* Password Strength Indicator */}
@@ -624,6 +624,12 @@ export default function Login() {
                     Remember me
                   </Label>
                 </motion.div>
+                <Link
+  to="/forgotpassword"
+  className="text-sm text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded font-medium"
+>
+  Forgot password?
+</Link>
                 {/* Login Button */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -632,7 +638,7 @@ export default function Login() {
                 >
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center text-base"
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center text-base"
                     disabled={loadingState !== 'idle'}
                     aria-busy={loadingState === 'email-password'}
                   >
@@ -647,7 +653,7 @@ export default function Login() {
                   </Button>
                 </motion.div>
                 {/* Divider */}
-                <div className="relative my-8">
+                <div className="relative my-6 sm:my-8">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-gray-300"></div>
                   </div>
@@ -688,9 +694,9 @@ export default function Login() {
                 </motion.div>
               </form>
             </CardContent>
-            <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 pb-8">
+            <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 pb-6 sm:pb-8 px-4 sm:px-6">
               <motion.div
-                className="text-base text-gray-600 text-center"
+                className="text-sm sm:text-base text-gray-600 text-center"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8 }}
@@ -701,12 +707,12 @@ export default function Login() {
                 </Link>
               </motion.div>
               <motion.div
-                className="text-sm text-gray-500 text-center flex items-center"
+                className="text-xs sm:text-sm text-gray-500 text-center flex items-center"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.9 }}
               >
-                <ShieldAlert className="h-4 w-4 mr-1" />
+                <ShieldAlert className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                 &copy; {new Date().getFullYear()} Clarify OCR. All rights reserved.
               </motion.div>
             </CardFooter>
@@ -731,7 +737,7 @@ export default function Login() {
               animate={{ scale: 1, opacity: 1, rotateX: 0 }}
               exit={{ scale: 0.8, opacity: 0, rotateX: 30 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center border border-gray-200"
+              className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center border border-gray-200"
             >
               <div className="flex justify-center mb-6">
                 <div className="bg-blue-100 p-4 rounded-full">
@@ -740,10 +746,10 @@ export default function Login() {
                   </svg>
                 </div>
               </div>
-              <h3 id="redirect-title" className="text-2xl font-bold text-gray-800 mb-3">
+              <h3 id="redirect-title" className="text-xl sm:text-2xl font-bold text-gray-800 mb-3">
                 Redirecting to Google
               </h3>
-              <p id="redirect-description" className="text-gray-600 mb-6">
+              <p id="redirect-description" className="text-gray-600 mb-6 text-sm sm:text-base">
                 Please complete the sign-in process in the new window or tab.
                 You will be redirected back automatically.
               </p>
