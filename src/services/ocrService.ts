@@ -3,10 +3,10 @@ import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
 
 // ✅ PDF.js worker fix for Vite
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
-import workerSrc from 'pdfjs-dist/build/pdf.worker.min?url'; // <- This works in Vite
+import { GlobalWorkerOptions } from 'pdfjs-dist';
 
-GlobalWorkerOptions.workerSrc = workerSrc;
+// Fix: Use CDN fallback for PDF worker to avoid import issues
+GlobalWorkerOptions.workerSrc = '//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
