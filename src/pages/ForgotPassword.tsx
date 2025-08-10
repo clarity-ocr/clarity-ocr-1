@@ -136,12 +136,6 @@ export default function ForgotPassword() {
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
               <Button
-                onClick={() => navigate(`/reset-password?email=${encodeURIComponent(email)}`)}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                Enter Verification Code
-              </Button>
-              <Button
                 onClick={handleTryAnotherEmail}
                 variant="outline"
                 className="w-full"
