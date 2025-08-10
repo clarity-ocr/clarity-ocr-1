@@ -1,12 +1,19 @@
 // src/types/history.ts
-import { AnalysisResult } from '@/types/task';
-
-export interface HistoryEntry {
-  id: string; // Unique identifier for the history entry
-  timestamp: string; // ISO string of when it was saved
-  analysisResult: AnalysisResult; // The full analysis result
-  fileName?: string; // Optional filename if uploaded
-  title: string; // A descriptive title for the entry
+export interface HistoryItem {
+  id: string;
+  fileName: string;
+  analysisResult: any; // Would normally be AnalysisResult from task types
+  createdAt: string;
+  shareCount?: number;
+  lastSharedAt?: string | null;
+  isPublic: boolean;
+  password?: string | null;
+  expiresAt?: string | null;
 }
 
-export type HistoryList = HistoryEntry[];
+export interface HistoryStats {
+  totalItems: number;
+  sharedItems: number;
+  totalShares: number;
+  mostSharedItem?: HistoryItem;
+}
