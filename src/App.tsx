@@ -9,9 +9,14 @@ import Register from "@/pages/Register";
 import ForgotPassword from '@/pages/ForgotPassword'; 
 import ResetPassword from '@/pages/ResetPassword';
 import Index from "@/pages/Index";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import Checklist from "./pages/Checklist";
 import History from './pages/History'; 
-import SharedAnalysis from './pages/SharedAnalysis';
+import SharedAnalysis from './pages/SharedChecklist';
+import FeaturesPage from '@/pages/FeaturesPage';
+import AboutPage from '@/pages/AboutPage';
+import TermsPage from '@/pages/TermsPage';
+import PrivacyPage from '@/pages/PrivacyPage';
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Logo display component
 const LogoDisplay: React.FC = () => {
@@ -29,7 +34,7 @@ const LogoDisplay: React.FC = () => {
 const App: React.FC = () => {
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-
+  
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -52,12 +57,65 @@ const App: React.FC = () => {
         />
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
-        <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/logoback" element={<LogoDisplay />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/shared/:entryId" element={<SharedAnalysis />} />
+        
+        {/* Protected Routes */}
+        <Route
+          path="/checklist/:id"
+          element={
+            <ProtectedRoute user={user} loading={loading}>
+              <Checklist />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute user={user} loading={loading}>
+              <History />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/features"
+          element={
+            <ProtectedRoute user={user} loading={loading}>
+              <FeaturesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/about"
+          element={
+            <ProtectedRoute user={user} loading={loading}>
+              <AboutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/terms"
+          element={
+            <ProtectedRoute user={user} loading={loading}>
+              <TermsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/privacy"
+          element={
+            <ProtectedRoute user={user} loading={loading}>
+              <PrivacyPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Public Routes */}
+        <Route path="/shared/:id" element={<SharedAnalysis />} />
+        
+        {/* Catch-all route */}
+        <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
       </Routes>
     </BrowserRouter>
   );

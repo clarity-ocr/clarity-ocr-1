@@ -1,5 +1,5 @@
 // src/pages/Index.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Eye,
   Sparkles,
@@ -16,596 +16,299 @@ import {
   Shield,
   ArrowLeft,
   LogOut,
-  History as HistoryIcon, // Import the History icon
-  Loader2
+  History as HistoryIcon,
+  Loader2,
+  ChevronRight,
+  Star,
+  Users,
+  Globe,
+  Lock,
+  BarChart3,
+  Lightbulb,
+  ThumbsUp,
+  TrendingUp,
+  CheckCircle,
+  AlertCircle,
+  Settings,
+  HelpCircle,
+  Mail,
+  Phone,
+  MapPin,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Github,
+  Instagram,
+  Youtube,
+  Home,
+  Upload,
+  BookOpen,
+  Briefcase,
+  DollarSign,
+  Award,
+  Calendar,
+  Bell,
+  Search,
+  Filter,
+  Grid,
+  List,
+  Plus,
+  Edit,
+  Trash2,
+  Share2,
+  Download,
+  Printer,
+  Moon,
+  Sun,
+  Monitor,
+  UserCircle,
+  CreditCard,
+  LifeBuoy,
+  Newspaper,
+  Building,
+  Map,
+  Navigation,
+  Compass,
+  Anchor,
+  Sailboat,
+  Rocket,
+  Flame,
+  Snowflake,
+  Leaf,
+  TreePine,
+  Mountain,
+  Waves,
+  Sunrise,
+  Sunset,
+  Candy,
+  Coffee,
+  Wine,
+  Beer,
+  GlassWater,
+  Apple,
+  Cherry,
+  Carrot,
+  Egg,
+  Milk,
+  Pizza,
+  Cake,
+  IceCream,
+  Cookie,
+  CandyCane,
+  Lollipop,
+  Popcorn,
+  Film,
+  Gamepad2,
+  Headphones,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/FileUpload';
-// import { ChecklistPage } from '@/pages/Checklist'; // Assuming ChecklistPage is rendered via route now
 import { analyzeDocument } from '@/services/aiAnalysis';
 import { AnalysisResult } from '@/types/task';
 import { useToast } from '@/hooks/use-toast';
-// Firebase Auth
 import { signOut } from 'firebase/auth';
 import { auth } from '@/firebase';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate, Link } from 'react-router-dom';
+import { addToHistory } from '@/services/historyService';
 
-// Page Component Placeholders (These would be separate files in a full app)
-const FeaturesPage = ({ onBack }: { onBack: () => void }) => {
-  const features = [
-    {
-      icon: Eye,
-      title: "Advanced OCR Technology",
-      description: "State-of-the-art optical character recognition that accurately extracts text from images, PDFs, and scanned documents with high precision.",
-      benefits: ["Multi-language support", "Handwriting recognition", "Table extraction", "Preserves formatting"]
-    },
-    {
-      icon: Target,
-      title: "Smart Task Extraction",
-      description: "AI-powered analysis that identifies actionable tasks, deadlines, and priorities from unstructured text content.",
-      benefits: ["Automatic task detection", "Priority assignment", "Deadline extraction", "Context understanding"]
-    },
-    {
-      icon: Clock,
-      title: "Time Estimation",
-      description: "Machine learning algorithms that predict the time required to complete each task based on complexity and historical data.",
-      benefits: ["Accurate predictions", "Customizable estimates", "Historical learning", "Adjustable parameters"]
-    },
-    {
-      icon: Zap,
-      title: "Lightning Fast Processing",
-      description: "Optimized algorithms and parallel processing ensure quick results even for large documents.",
-      benefits: ["Real-time processing", "Batch processing", "Cloud acceleration", "Scalable architecture"]
-    }
-  ];
+// --- FEATURE DATA ---
+const FEATURES_DATA = [
+  {
+    icon: Eye,
+    title: "Advanced OCR Technology",
+    description: "State-of-the-art optical character recognition that accurately extracts text from images, PDFs, and scanned documents with high precision.",
+    benefits: ["Multi-language support", "Handwriting recognition", "Table extraction", "Preserves formatting"]
+  },
+  {
+    icon: Target,
+    title: "Smart Task Extraction",
+    description: "AI-powered analysis that identifies actionable tasks, deadlines, and priorities from unstructured text content.",
+    benefits: ["Automatic task detection", "Priority assignment", "Deadline extraction", "Context understanding"]
+  },
+  {
+    icon: Clock,
+    title: "Time Estimation",
+    description: "Machine learning algorithms that predict the time required to complete each task based on complexity and historical data.",
+    benefits: ["Accurate predictions", "Customizable estimates", "Historical learning", "Adjustable parameters"]
+  },
+  {
+    icon: Zap,
+    title: "Lightning Fast Processing",
+    description: "Optimized algorithms and parallel processing ensure quick results even for large documents.",
+    benefits: ["Real-time processing", "Batch processing", "Cloud acceleration", "Scalable architecture"]
+  },
+  {
+    icon: FileText,
+    title: "Multi-Format Support",
+    description: "Support for a wide range of document formats including PDFs, images, Word documents, and plain text.",
+    benefits: ["PDF processing", "Image OCR", "Document parsing", "Text extraction"]
+  },
+  {
+    icon: User,
+    title: "User-Friendly Interface",
+    description: "Intuitive design that makes it easy to upload, analyze, and manage extracted tasks and information.",
+    benefits: ["Drag & drop", "Progress tracking", "Export options", "Mobile responsive"]
+  }
+];
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBack}
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="gradient-primary p-2.5 rounded-xl shadow-lg">
-                    <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                    Clarity OCR
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-                    Extract What Matters
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+const TESTIMONIALS = [
+  {
+    name: "Sarah Johnson",
+    role: "Project Manager",
+    company: "TechCorp",
+    content: "Clarity OCR has transformed how we process contracts. It cuts our review time by 70%!",
+    avatar: "SJ",
+    rating: 5
+  },
+  {
+    name: "Michael Chen",
+    role: "Researcher",
+    company: "University Lab",
+    content: "The accuracy of the OCR and task extraction is phenomenal. It understands context like a human.",
+    avatar: "MC",
+    rating: 5
+  },
+  {
+    name: "David Rodriguez",
+    role: "Legal Assistant",
+    company: "Law Partners",
+    content: "Finding clauses and deadlines used to take hours. Now it's instant. A game-changer for our firm.",
+    avatar: "DR",
+    rating: 4
+  }
+];
 
-      <div className="container mx-auto px-4 py-16 max-w-6xl">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Powerful Features
-          </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-            Discover the comprehensive capabilities of Clarity OCR designed to transform your document processing workflow.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
-            <Card key={index} className="h-full overflow-hidden border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="p-6">
-                <div className="gradient-primary p-3 rounded-xl w-fit mb-4">
-                  <feature.icon className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-slate-200">{feature.title}</h3>
-                <p className="text-slate-600 dark:text-slate-400 mb-4">{feature.description}</p>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-slate-700 dark:text-slate-300">Key Benefits:</h4>
-                  <ul className="space-y-1">
-                    {feature.benefits.map((benefit, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2 flex-shrink-0"></div>
-                        {benefit}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
+const FAQ_ITEMS = [
+  {
+    question: "What file formats do you support?",
+    answer: "We support PDFs, JPG, PNG, GIF, BMP, TIFF, WEBP images, DOCX, TXT, and Markdown files."
+  },
+  {
+    question: "Is my data secure?",
+    answer: "Absolutely. We process your files securely and do not store them after analysis. All processing happens in memory."
+  },
+  {
+    question: "How accurate is the OCR?",
+    answer: "Our advanced OCR engine achieves over 99% accuracy on standard printed text and performs well on common fonts and clear scans."
+  },
+  {
+    question: "Can I export the results?",
+    answer: "Yes, you can export your task lists as JSON, PDF, or CSV files directly from the checklist page."
+  }
+];
 
-const AboutPage = ({ onBack }: { onBack: () => void }) => {
-  const team = [
-    {
-      name: "Jeevasurya Palanisamy",
-      role: "Founder & Developer",
-      bio: "Gmail : jeevasurya.global@gmail.com"
-    },
-    // Add more team members as needed
-  ];
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBack}
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="gradient-primary p-2.5 rounded-xl shadow-lg">
-                    <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                    Clarity OCR
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-                    Extract What Matters
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="container mx-auto px-4 py-16 max-w-6xl">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            About Clarity OCR
-          </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-            We're passionate about transforming how businesses process documents with cutting-edge AI technology.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
-          <div>
-            <h2 className="text-3xl font-bold mb-6 text-slate-800 dark:text-slate-200">Our Mission</h2>
-            <p className="text-lg text-slate-600 dark:text-slate-400 mb-6">
-              At Clarity OCR, we believe that document processing should be intelligent, efficient, and accessible to everyone. Our mission is to eliminate manual data entry and unlock the valuable information trapped in documents.
-            </p>
-            <p className="text-lg text-slate-600 dark:text-slate-400">
-              Founded in 2025, we've helped thousands of organizations streamline their workflows with our advanced OCR technology. From small businesses to large enterprises, our solutions adapt to your unique needs.
-            </p>
-          </div>
-          <div className="gradient-primary p-8 rounded-2xl shadow-xl">
-            <div className="text-white text-center">
-              <Eye className="w-16 h-16 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold mb-2">Extract What Matters</h3>
-              <p>Our AI-powered technology transforms documents into actionable insights</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-16">
-          <h2 className="text-3xl font-bold mb-8 text-center text-slate-800 dark:text-slate-200">Our Values</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <Card className="p-6 text-center border-slate-200 dark:border-slate-700">
-              <div className="gradient-primary p-3 rounded-xl w-fit mx-auto mb-4">
-                <Target className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-slate-200">Innovation</h3>
-              <p className="text-slate-600 dark:text-slate-400">We push the boundaries of what's possible with AI and OCR technology.</p>
-            </Card>
-            <Card className="p-6 text-center border-slate-200 dark:border-slate-700">
-              <div className="gradient-primary p-3 rounded-xl w-fit mx-auto mb-4">
-                <User className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-slate-200">User-Centric</h3>
-              <p className="text-slate-600 dark:text-slate-400">Our users are at the heart of every decision we make and feature we build.</p>
-            </Card>
-            <Card className="p-6 text-center border-slate-200 dark:border-slate-700">
-              <div className="gradient-primary p-3 rounded-xl w-fit mx-auto mb-4">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-slate-200">Security</h3>
-              <p className="text-slate-600 dark:text-slate-400">We protect your data with enterprise-grade security and privacy measures.</p>
-            </Card>
-          </div>
-        </div>
-
-        <div>
-          <h2 className="text-3xl font-bold mb-8 text-center text-slate-800 dark:text-slate-200">Meet Our Team</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            {team.map((member, index) => (
-              <Card key={index} className="p-6 text-center border-slate-200 dark:border-slate-700">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-200 to-purple-200 mx-auto mb-4 flex items-center justify-center">
-                  <User className="w-12 h-12 text-indigo-600" />
-                </div>
-                <h3 className="text-xl font-bold mb-1 text-slate-800 dark:text-slate-200">{member.name}</h3>
-                <p className="text-indigo-600 dark:text-indigo-400 mb-3">{member.role}</p>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">{member.bio}</p>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const TermsPage = ({ onBack }: { onBack: () => void }) => {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBack}
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="gradient-primary p-2.5 rounded-xl shadow-lg">
-                    <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                    Clarity OCR
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-                    Extract What Matters
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Terms and Conditions
-          </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-300">
-            Last updated: {new Date().toLocaleDateString()}
-          </p>
-        </div>
-        <Card className="p-8 border-slate-200 dark:border-slate-700">
-          <div className="space-y-8">
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">1. Acceptance of Terms</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                By accessing and using Clarity OCR ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. In addition, when using this particular service, you shall be subject to any posted guidelines or rules applicable to such services.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">2. Use License</h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-4">
-                Permission is granted to temporarily download one copy of the materials on Clarity OCR's website for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:
-              </p>
-              <ul className="list-disc pl-6 space-y-2 text-slate-600 dark:text-slate-400">
-                <li>Modify or copy the materials</li>
-                <li>Use the materials for any commercial purpose</li>
-                <li>Attempt to decompile or reverse engineer any software contained on Clarity OCR</li>
-                <li>Remove any copyright or other proprietary notations from the materials</li>
-                <li>Transfer the materials to another person or "mirror" the materials on any other server</li>
-              </ul>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">3. Disclaimer</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                The materials on Clarity OCR's website are provided on an 'as is' basis. Clarity OCR makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">4. Limitations</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                In no event shall Clarity OCR or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on Clarity OCR's website.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">5. Accuracy of Materials</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                The materials appearing on Clarity OCR's website could include technical, typographical, or photographic errors. Clarity OCR does not warrant that any of the materials on its website are accurate, complete, or current. Clarity OCR may make changes to the materials contained on its website at any time without notice.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">6. Links</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                Clarity OCR has not reviewed all of the sites linked to its website and is not responsible for the contents of any such linked site. The inclusion of any link does not imply endorsement by Clarity OCR of the site. Use of any such linked website is at the user's own risk.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">7. Modifications</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                Clarity OCR may revise these terms of service for its website at any time without notice. By using this website you are agreeing to be bound by the then current version of these terms of service.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">8. Governing Law</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                These terms and conditions are governed by and construed in accordance with the laws of [Your Jurisdiction] and you irrevocably submit to the exclusive jurisdiction of the courts in that State or Location.
-              </p>
-            </section>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-};
-
-const PrivacyPage = ({ onBack }: { onBack: () => void }) => {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBack}
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="gradient-primary p-2.5 rounded-xl shadow-lg">
-                    <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                    Clarity OCR
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-                    Extract What Matters
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Privacy Policy
-          </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-300">
-            Last updated: {new Date().toLocaleDateString()}
-          </p>
-        </div>
-        <Card className="p-8 border-slate-200 dark:border-slate-700">
-          <div className="space-y-8">
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">Information We Collect</h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-4">
-                We collect several types of information from and about users of our Service, including:
-              </p>
-              <ul className="list-disc pl-6 space-y-2 text-slate-600 dark:text-slate-400">
-                <li><strong>Personal Identifiable Information:</strong> Name, email address, and other contact information</li>
-                <li><strong>Usage Data:</strong> Information about how you use our Service, such as features accessed, documents processed, and time spent</li>
-                <li><strong>Document Content:</strong> The content of documents you upload for processing, which is temporarily stored during analysis</li>
-                <li><strong>Device Information:</strong> Information about the device you use to access our Service</li>
-              </ul>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">How We Use Your Information</h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-4">
-                We use the information we collect to:
-              </p>
-              <ul className="list-disc pl-6 space-y-2 text-slate-600 dark:text-slate-400">
-                <li>Provide, maintain, and improve our Service</li>
-                <li>Process documents and extract information as requested</li>
-                <li>Respond to your comments, questions, and requests</li>
-                <li>Send you technical notices and support messages</li>
-                <li>Monitor and analyze usage trends and preferences</li>
-              </ul>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">Data Security</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                We value your trust in providing us your personal information, thus we are striving to use commercially acceptable means of protecting it. But remember that no method of transmission over the internet or method of electronic storage is 100% secure and reliable, and we cannot guarantee its absolute security.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">Data Retention</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                We will retain your document content only as long as necessary for the purpose of processing your request. After processing is complete, document content is automatically deleted from our servers. Usage and device information is retained for analysis purposes and to improve our Service.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">Third-Party Services</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                Our Service may contain links to third-party web sites or services that are not owned or controlled by Clarity OCR. We have no control over, and assume no responsibility for, the content, privacy policies, or practices of any third-party web sites or services.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">Children's Privacy</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                Our Service is not intended for use by children under the age of 13. We do not knowingly collect personally identifiable information from children under 13. If you are a parent or guardian and you are aware that your child has provided us with personal information, please contact us.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">Changes to This Privacy Policy</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date at the top of this Privacy Policy.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-slate-200">Contact Us</h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                If you have any questions about this Privacy Policy, please contact us at privacy@clarityocr.com.
-              </p>
-            </section>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-};
-
-// Main Index Component
-const Index = () => {
+// --- MAIN COMPONENT ---
+export default function Index() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [currentView, setCurrentView] = useState<'upload' | 'checklist' | 'features' | 'about' | 'terms' | 'privacy'>('upload');
   const [progress, setProgress] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
-  const [isLoggingOut, setIsLoggingOut] = useState(false); // State for logout
-
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate();
 
-  // Enhanced AI features
-  const aiFeatures = [
-    {
-      icon: Eye,
-      title: "Advanced OCR",
-      description: "State-of-the-art text recognition for any document type"
-    },
-    {
-      icon: Target,
-      title: "Smart Analysis",
-      description: "AI-powered content understanding and task extraction"
-    },
-    {
-      icon: Clock,
-      title: "Time Estimation",
-      description: "ML-powered duration prediction for each task"
-    },
-    {
-      icon: Zap,
-      title: "Lightning Fast",
-      description: "Instant results with parallel processing"
-    }
-  ];
-
-  const handleAnalyze = async (content: string, fileName?: string) => {
+  // --- HANDLERS ---
+  const handleAnalyze = useCallback(async (content: string, fileName?: string) => {
+    console.log(`[Index] Initiating analysis for content of length ${content.length}`);
     try {
       setIsAnalyzing(true);
       setProgress(0);
+      
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
         setProgress(prev => Math.min(prev + 10, 90));
       }, 200);
-      const result = await analyzeDocument(content, fileName);
+      
+      console.log("[Index] Calling AI analysis service...");
+      const result: AnalysisResult = await analyzeDocument(content, fileName);
+      console.log("[Index] AI analysis completed successfully.");
+      
       clearInterval(progressInterval);
       setProgress(100);
-      setTimeout(() => {
-        setAnalysisResult(result);
-        setCurrentView('checklist');
-        toast({
-          title: "Analysis complete! 🎉",
-          description: `Found ${result.totalTasks} tasks across ${result.groups.length} categories.`,
-          duration: 5000
-        });
-      }, 500);
-    } catch (error) {
+      
+      // Small delay to show 100% progress
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Save to history and get the ID
+      console.log("[Index] Saving analysis result to history...");
+      const historyId = await addToHistory(result, fileName || 'Untitled Document');
+      console.log(`[Index] Analysis saved with ID: ${historyId}`);
+      
+      // Show success toast
       toast({
-        title: "Analysis failed",
-        description: "Please try again with a different document.",
+        title: "Analysis Complete! 🎉",
+        description: `Found ${result.totalTasks} tasks across ${result.groups.length} categories.`,
+        duration: 5000
+      });
+      
+      // Navigate to the checklist page
+      console.log(`[Index] Navigating to checklist page for ID: ${historyId}`);
+      
+      // Use a small delay to ensure the toast is shown before navigation
+      setTimeout(() => {
+        navigate(`/checklist/${historyId}`);
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error("[Index] Analysis failed:", error);
+      toast({
+        title: "Analysis Failed",
+        description: error.message || "An unexpected error occurred. Please try again.",
         variant: "destructive"
       });
     } finally {
       setIsAnalyzing(false);
+      setProgress(0); // Reset progress on finish/error
     }
-  };
+  }, [navigate, toast]);
 
-  const handleBackToUpload = () => {
-    setCurrentView('upload');
-    setAnalysisResult(null);
-    setProgress(0);
-  };
-
-  const navigateTo = (page: 'upload' | 'features' | 'about' | 'terms' | 'privacy') => {
-    setCurrentView(page);
-    setMobileMenuOpen(false);
-    window.scrollTo(0, 0);
-  };
-
-  // Handle logout function
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       setIsLoggingOut(true);
+      console.log("[Index] Initiating user logout...");
       await signOut(auth);
+      console.log("[Index] User logged out successfully.");
       toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your account",
-        duration: 3000
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
       });
-      // Redirect to login page
       navigate('/login');
     } catch (error: any) {
-      console.error("Logout error:", error);
+      console.error("[Index] Logout error:", error);
       toast({
-        title: "Logout failed",
+        title: "Logout Failed",
         description: "There was an error logging out. Please try again.",
         variant: "destructive"
       });
     } finally {
       setIsLoggingOut(false);
     }
-  };
+  }, [navigate, toast]);
 
-  // Render the appropriate page based on currentView
-  // This logic assumes ChecklistPage is rendered via a route like /checklist
-  if (currentView === 'checklist' && analysisResult) {
-    // This part is now handled by routing, so we don't render ChecklistPage directly here anymore.
-    // The checklist route will render ChecklistPage with the analysisResult passed as props.
-    // For demonstration, we keep the conditional logic but it's effectively unused.
-    // In a real app, you'd remove this block if using dedicated routes.
-    console.warn("Checklist view is managed by routing, not direct render in Index.tsx");
-  }
-  if (currentView === 'features') { return <FeaturesPage onBack={() => navigateTo('upload')} />; }
-  if (currentView === 'about') { return <AboutPage onBack={() => navigateTo('upload')} />; }
-  if (currentView === 'terms') { return <TermsPage onBack={() => navigateTo('upload')} />; }
-  if (currentView === 'privacy') { return <PrivacyPage onBack={() => navigateTo('upload')} />; }
+  const toggleMobileMenu = useCallback(() => {
+    setMobileMenuOpen(prev => !prev);
+  }, []);
 
-  // Main upload page
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
+
+  const scrollToSection = useCallback((sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+    closeMobileMenu();
+  }, [closeMobileMenu]);
+
+  // --- MEMOIZED DATA ---
+  const aiFeatures = FEATURES_DATA;
+  const testimonials = TESTIMONIALS;
+  const faqs = FAQ_ITEMS;
+
+  // --- RENDERING ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Navigation Bar */}
@@ -629,58 +332,56 @@ const Index = () => {
                 </p>
               </div>
             </div>
+            
             {/* Mobile Menu Button */}
             <button
               className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={toggleMobileMenu}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
+            
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-6">
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => navigateTo('features')}
+                onClick={() => scrollToSection('hero')}
               >
+                <Home className="w-4 h-4 mr-2" />
+                Home
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                onClick={() => scrollToSection('features')}
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
                 Features
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => navigateTo('about')}
+                onClick={() => navigate('/history')}
               >
-                About
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => navigateTo('terms')}
-              >
-                Terms
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => navigateTo('privacy')}
-              >
-                Privacy
-              </Button>
-              {/* --- ADD HISTORY LINK TO DESKTOP NAV --- */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-2"
-                onClick={() => navigate('/history')} // Navigate to /history
-              >
-                <HistoryIcon className="w-4 h-4" />
+                <HistoryIcon className="w-4 h-4 mr-2" />
                 History
               </Button>
-              {/* --- END ADDITION --- */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                onClick={() => navigate('/about')}
+              >
+                <Info className="w-4 h-4 mr-2" />
+                About
+              </Button>
+              
               {/* Logout Button */}
               <Button
                 variant="ghost"
@@ -703,54 +404,46 @@ const Index = () => {
               </Button>
             </div>
           </div>
+          
           {/* Mobile Navigation Menu */}
           {mobileMenuOpen && (
             <div className="md:hidden mt-4 pb-4 space-y-2 animate-fade-in">
-              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => navigateTo('features')}>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => scrollToSection('hero')}>
+                <Home className="w-4 h-4 mr-2" />
+                Home
+              </Button>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => scrollToSection('features')}>
+                <BookOpen className="w-4 h-4 mr-2" />
                 Features
               </Button>
-              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => navigateTo('about')}>
-                About
-              </Button>
-              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => navigateTo('terms')}>
-                Terms
-              </Button>
-              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => navigateTo('privacy')}>
-                Privacy
-              </Button>
-              {/* --- ADD HISTORY LINK FOR MOBILE --- */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start flex items-center gap-2"
-                onClick={() => {
-                  navigate('/history');
-                  setMobileMenuOpen(false); // Close menu after click
-                }}
-              >
-                <HistoryIcon className="w-4 h-4" />
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => navigate('/history')}>
+                <HistoryIcon className="w-4 h-4 mr-2" />
                 History
               </Button>
-              {/* --- END ADDITION --- */}
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => navigate('/about')}>
+                <Info className="w-4 h-4 mr-2" />
+                About
+              </Button>
+              
               {/* Logout Button for Mobile */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   handleLogout();
-                  setMobileMenuOpen(false); // Close menu after click
+                  closeMobileMenu(); // Close menu after click
                 }}
                 disabled={isLoggingOut}
                 className="w-full justify-start text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-2"
               >
                 {isLoggingOut ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     Logging out...
                   </>
                 ) : (
                   <>
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-4 h-4 mr-2" />
                     Logout
                   </>
                 )}
@@ -759,10 +452,10 @@ const Index = () => {
           )}
         </div>
       </nav>
-
-   {/* Hero Section */}
-   <div className="container mx-auto px-4 py-8 md:py-16 max-w-6xl">
-        <div className="text-center mb-12 md:mb-16">
+      
+      {/* Hero Section */}
+      <div id="hero" className="container mx-auto px-4 py-16 max-w-6xl">
+        <div className="text-center mb-16">
           <div className="flex items-center justify-center gap-2 mb-6 animate-fade-in">
             <div className="gradient-primary p-3 rounded-2xl shadow-glow transform transition-transform hover:scale-110 hover:rotate-6">
               <img src="/icon.png" alt="Clarity OCR Logo" className="w-8 h-8" />
@@ -774,13 +467,13 @@ const Index = () => {
           </div>
           
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent animate-slide-up">
-            Extract What Matters
+            Transform Documents into Action
           </h1>
           
           <p className="text-lg md:text-xl lg:text-2xl text-slate-600 dark:text-slate-300 mb-8 max-w-3xl mx-auto animate-slide-up animation-delay-200">
-            Clarity OCR transforms any document into actionable insights. 
-            Upload PDFs, images, or paste text to extract tasks with precision.
+            Clarity OCR transforms any document into actionable insights. Upload PDFs, images, or paste text to extract tasks with precision.
           </p>
+          
           <div className="flex flex-wrap justify-center gap-3 md:gap-4 mb-10 md:mb-12 animate-slide-up animation-delay-400">
             {[
               { icon: FileImage, text: "Image Recognition" },
@@ -799,102 +492,208 @@ const Index = () => {
           </div>
         </div>
         
-        {/* Feature Cards - Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-12 md:mb-16">
-          {aiFeatures.map((feature, index) => (
-            <div
-              key={index}
-              className="h-full transition-all duration-500"
-              onMouseEnter={() => setHoveredFeature(index)}
-              onMouseLeave={() => setHoveredFeature(null)}
-              style={{
-                transform: hoveredFeature === index ? 'translateY(-8px)' : 'translateY(0)',
-                zIndex: hoveredFeature === index ? 10 : 1
-              }}
-            >
-              <Card className={`h-full transition-all duration-500 border-slate-200 dark:border-slate-700 ${
-                hoveredFeature === index 
-                  ? 'shadow-xl border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-white to-indigo-50 dark:from-slate-800 dark:to-slate-700' 
-                  : 'shadow-md hover:shadow-lg'
-              }`}>
-                <div className="p-4 md:p-6">
-                  <div className={`gradient-primary p-3 rounded-xl w-fit mb-4 transition-transform duration-300 ${
-                    hoveredFeature === index ? 'scale-110 rotate-3' : ''
-                  }`}>
-                    <feature.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-200">
-                    {feature.title}
-                  </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {feature.description}
-                  </p>
-                </div>
-              </Card>
+        {/* Stats Banner */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
+          {[
+            { value: "10K+", label: "Documents Processed" },
+            { value: "99.5%", label: "OCR Accuracy" },
+            { value: "< 30s", label: "Avg. Processing Time" },
+            { value: "24/7", label: "Cloud Availability" }
+          ].map((stat, index) => (
+            <div key={index} className="p-4 text-center bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stat.value}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">{stat.label}</p>
             </div>
           ))}
         </div>
         
-        {/* Upload Section */}
-        <div className="max-w-4xl mx-auto animate-fade-in animation-delay-600">
-          <div className="text-center mb-6 md:mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
-              Get Started
-            </h2>
-            <p className="text-slate-600 dark:text-slate-400 text-base md:text-lg">
-              Upload your document or paste content to begin AI analysis
-            </p>
-          </div>
-          
-          <div className="transition-all duration-300 hover:scale-[1.02]">
+        {/* File Upload Section */}
+        <div className="mb-20">
+          <div className="p-8 bg-gradient-to-br from-white/80 to-slate-100/50 dark:from-slate-800/80 dark:to-slate-900/50 backdrop-blur-sm shadow-xl rounded-3xl border border-slate-200 dark:border-slate-700">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4 text-slate-800 dark:text-slate-200">Start Analyzing Now</h2>
+              <p className="text-slate-600 dark:text-slate-400">Upload a document or paste text to get started.</p>
+            </div>
             <FileUpload onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} progress={progress} />
           </div>
         </div>
         
-        {/* Footer */}
-        <footer className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-700">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-3">
-              <img src="/icon.png" alt="Clarity OCR Logo" className="h-8 w-8 rounded-lg" />
-              <div>
-                <h3 className="font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Clarity OCR
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Extract What Matters</p>
+        {/* Features Section */}
+        <div id="features" className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-800 dark:text-slate-200">Powerful Features</h2>
+            <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+              Discover the comprehensive capabilities of Clarity OCR designed to transform your document processing workflow.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {aiFeatures.map((feature, index) => (
+              <div
+                key={index}
+                className={`h-full overflow-hidden border border-slate-200 dark:border-slate-700 rounded-xl hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+                  hoveredFeature === index ? 'ring-2 ring-indigo-500' : ''
+                }`}
+                onMouseEnter={() => setHoveredFeature(index)}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className="p-6 h-full bg-white dark:bg-slate-800">
+                  <div className="gradient-primary p-3 rounded-xl w-fit mb-4">
+                    <feature.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-slate-200">{feature.title}</h3>
+                  <p className="text-slate-600 dark:text-slate-400 mb-4">{feature.description}</p>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-slate-700 dark:text-slate-300">Key Benefits:</h4>
+                    <ul className="space-y-1">
+                      {feature.benefits.map((benefit, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2 flex-shrink-0"></div>
+                          {benefit}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap justify-center gap-4 md:gap-6">
-              <button 
-                className="text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                onClick={() => navigateTo('features')}
-              >
-                Features
+            ))}
+          </div>
+        </div>
+        
+        {/* Testimonials */}
+        <div className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-800 dark:text-slate-200">Trusted by Professionals</h2>
+            <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+              See what our users are saying about Clarity OCR.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {testimonials.map((testimonial, index) => (
+              <div key={index} className="p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-200 to-purple-200 flex items-center justify-center text-indigo-800 font-bold">
+                    {testimonial.avatar}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200">{testimonial.name}</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{testimonial.role}, {testimonial.company}</p>
+                  </div>
+                </div>
+                <div className="flex mb-3">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className={`w-4 h-4 ${i < testimonial.rating ? 'text-yellow-500 fill-current' : 'text-gray-300'}`} />
+                  ))}
+                </div>
+                <p className="text-slate-600 dark:text-slate-400 italic">"{testimonial.content}"</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* FAQ Section */}
+        <div className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-800 dark:text-slate-200">Frequently Asked Questions</h2>
+            <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+              Everything you need to know about Clarity OCR.
+            </p>
+          </div>
+          <div className="space-y-4 max-w-4xl mx-auto">
+            {faqs.map((faq, index) => (
+              <div key={index} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="p-4 pb-2">
+                  <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <ChevronRight className="w-4 h-4 text-indigo-500" />
+                    {faq.question}
+                  </h3>
+                </div>
+                <div className="px-4 pb-4 pt-0">
+                  <p className="text-slate-600 dark:text-slate-400">{faq.answer}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* CTA Section */}
+        <div className="text-center mb-16">
+          <div className="p-12 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 dark:from-indigo-700/20 dark:to-purple-700/20 backdrop-blur-sm shadow-xl rounded-3xl border border-slate-200 dark:border-slate-700">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-slate-800 dark:text-slate-200">Ready to Get Started?</h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 max-w-2xl mx-auto">
+              Join thousands of professionals who trust Clarity OCR to streamline their document workflows.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button className="text-lg px-8 py-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                Start Free Trial
               </button>
-              <button 
-                className="text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                onClick={() => navigateTo('about')}
-              >
-                About
+              <button className="text-lg px-8 py-6 bg-white hover:bg-gray-50 border border-slate-300 dark:bg-slate-800 dark:border-slate-600 dark:hover:bg-slate-700 font-bold rounded-xl shadow hover:shadow-md transition-all duration-300">
+                Schedule a Demo
               </button>
-              <button 
-                className="text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                onClick={() => navigateTo('terms')}
-              >
-                Terms
-              </button>
-              <button 
-                className="text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                onClick={() => navigateTo('privacy')}
-              >
-                Privacy
-              </button>
-            </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              © {new Date().getFullYear()} Clarity OCR. All rights reserved.
             </div>
           </div>
-        </footer>
+        </div>
       </div>
+      
+      {/* Footer */}
+      <footer className="bg-slate-900 text-slate-300">
+        <div className="container mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-8">
+            <div className="lg:col-span-2">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="gradient-primary p-2 rounded-xl">
+                  <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Clarity OCR</h3>
+              </div>
+              <p className="mb-4">
+                Transforming documents into actionable insights with cutting-edge AI technology.
+              </p>
+              <div className="flex space-x-4">
+                {[Facebook, Twitter, Linkedin, Github, Instagram, Youtube].map((Icon, index) => (
+                  <a key={index} href="#" className="text-slate-400 hover:text-white transition-colors" aria-label={`Follow us on ${Icon.name}`}>
+                    <Icon className="w-5 h-5" />
+                  </a>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-4">Product</h4>
+              <ul className="space-y-2">
+                <li><Link to="/features" className="hover:text-white transition-colors">Features</Link></li>
+                <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
+                <li><Link to="/integrations" className="hover:text-white transition-colors">Integrations</Link></li>
+                <li><Link to="/roadmap" className="hover:text-white transition-colors">Roadmap</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-4">Resources</h4>
+              <ul className="space-y-2">
+                <li><Link to="/blog" className="hover:text-white transition-colors">Blog</Link></li>
+                <li><Link to="/docs" className="hover:text-white transition-colors">Documentation</Link></li>
+                <li><Link to="/guides" className="hover:text-white transition-colors">Guides</Link></li>
+                <li><Link to="/support" className="hover:text-white transition-colors">Support</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-4">Company</h4>
+              <ul className="space-y-2">
+                <li><Link to="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                <li><Link to="/careers" className="hover:text-white transition-colors">Careers</Link></li>
+                <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
+                <li><Link to="/legal" className="hover:text-white transition-colors">Legal</Link></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center">
+            <p>&copy; {new Date().getFullYear()} Clarity OCR. All rights reserved.</p>
+            <div className="flex space-x-6 mt-4 md:mt-0">
+              <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
+              <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+              <Link to="/security" className="hover:text-white transition-colors">Security</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
       
       {/* Custom Styles */}
       <style>{`
@@ -1017,6 +816,4 @@ const Index = () => {
       `}</style>
     </div>
   );
-};
-
-export default Index;
+}

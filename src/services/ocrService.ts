@@ -1,303 +1,336 @@
-import Tesseract from 'tesseract.js';
+/**
+ * Enhanced OCR & document parsing service
+ * Supports up to 50MB files with optimized performance
+ * - PDF text extraction (pdfjs-dist)
+ * - DOCX text extraction (mammoth)
+ * - Image OCR (tesseract.js) with optimization
+ * - Text files (txt, md, markdown)
+ * - Progress tracking and error handling
+ */
+
+import Tesseract from "tesseract.js";
 import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
 
-// ✅ PDF.js worker fix for Vite
-import { GlobalWorkerOptions } from 'pdfjs-dist';
-
-// Fix: Use CDN fallback for PDF worker to avoid import issues
-GlobalWorkerOptions.workerSrc = '//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+// Configure PDF.js worker - using compatible version
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.mjs';
 
 export interface OcrResult {
   text: string;
   confidence: number;
   pages?: number;
+  processingTime?: number;
+  fileType: string;
+}
+
+export type ProgressCallback = (progress: number) => void;
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB for images
+const OCR_CHUNK_SIZE = 2048; // Process images in chunks for better performance
+
+/**
+ * Validate file size and type
+ */
+function validateFile(file: File): void {
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds maximum allowed size of 50MB`);
+  }
+  
+  const allowedExtensions = ['.pdf', '.docx', '.txt', '.md', '.markdown', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'];
+  const fileName = file.name.toLowerCase();
+  const isValidType = allowedExtensions.some(ext => fileName.endsWith(ext));
+  
+  if (!isValidType) {
+    throw new Error(`Unsupported file type. Allowed: ${allowedExtensions.join(', ')}`);
+  }
 }
 
 /**
- * Extract text from a file using appropriate method based on file type
- * @param file File to process
- * @param onProgress Optional callback for progress (0-100)
+ * Optimize image for OCR processing
  */
-export const extractTextFromFile = async (
-  file: File,
-  onProgress?: (progress: number) => void
-): Promise<OcrResult> => {
-  try {
-    if (file.size > MAX_FILE_SIZE) {
-      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      throw new Error(
-        `File size (${fileSizeMB} MB) exceeds the maximum allowed size of 50 MB.`
-      );
-    }
-    
-    const ext = file.name.toLowerCase();
-    let extractedText = "";
-    let confidence = 100; // Default for non-OCR files
-    let pages: number | undefined;
-
-    // Handle different file types
-    if (ext.endsWith(".txt") || ext.endsWith(".md") || ext.endsWith(".markdown")) {
-      // Plain text or Markdown files - optimized for speed
-      extractedText = await readTextFileOptimized(file);
-      if (onProgress) onProgress(100);
-    } 
-    else if (ext.endsWith(".docx")) {
-      // Word DOCX files
-      const arrayBuffer = await file.arrayBuffer();
-      const result = await mammoth.extractRawText({ arrayBuffer });
-      extractedText = result.value;
-      if (onProgress) onProgress(100);
-    } 
-    else if (ext.endsWith(".pdf")) {
-      // PDF files - optimized with better error handling
-      const pdfResult = await extractPdfTextOptimized(file, onProgress);
-      extractedText = pdfResult.text;
-      confidence = pdfResult.confidence;
-      pages = pdfResult.pages;
-    } 
-    else if (file.type.startsWith("image/") || /\.(jpe?g|png|gif|bmp|webp|tiff)$/i.test(ext)) {
-      // Image files - use OCR
-      console.log('[Tesseract] Starting OCR for image...');
-      try {
-        const result = await Tesseract.recognize(file, 'eng+tam+hin', {
-          logger: (m) => {
-            if (onProgress && m.status === 'recognizing text') {
-              onProgress(Math.round((m.progress || 0) * 100));
-            }
-          },
-        });
-        console.log('[Tesseract] OCR completed for image.');
-        extractedText = result.data.text;
-        confidence = result.data.confidence ?? 0;
-      } catch (ocrError) {
-        console.error('OCR for image failed:', ocrError);
-        throw new Error('Failed to extract text from image using OCR.');
-      }
-    } 
-    else {
-      throw new Error(
-        `Unsupported file type. Supported: TXT, MD, DOCX, PDF, JPG, PNG, GIF, BMP, WEBP, TIFF`
-      );
-    }
-
-    if (!extractedText || extractedText.trim().length === 0) {
-      throw new Error('No readable text was found in the file.');
-    }
-
-    return {
-      text: extractedText,
-      confidence,
-      pages
-    };
-  } catch (error: any) {
-    console.error('[extractTextFromFile] Error:', error);
-    throw new Error(`Failed to extract text: ${error.message || error}`);
-  }
-};
-
-// Optimized text file reading
-const readTextFileOptimized = async (file: File): Promise<string> => {
+async function optimizeImageForOCR(file: File): Promise<File> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read text file'));
-    reader.readAsText(file);
-  });
-};
-
-// Optimized PDF text extraction with better error handling
-const extractPdfTextOptimized = async (
-  file: File, 
-  onProgress?: (progress: number) => void
-): Promise<{ text: string; confidence: number; pages?: number }> => {
-  try {
-    // Convert file to ArrayBuffer for PDF.js
-    const arrayBuffer = await file.arrayBuffer();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
     
-    // Create a loading task to better handle PDF loading
-    const loadingTask = pdfjsLib.getDocument({ 
+    img.onload = () => {
+      // Calculate optimal dimensions (max 2048px on longest side)
+      const maxDimension = 2048;
+      let { width, height } = img;
+      
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = (height * maxDimension) / width;
+          width = maxDimension;
+        } else {
+          width = (width * maxDimension) / height;
+          height = maxDimension;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Draw and enhance image
+      ctx!.drawImage(img, 0, 0, width, height);
+      
+      // Apply image enhancements for better OCR
+      const imageData = ctx!.getImageData(0, 0, width, height);
+      const data = imageData.data;
+      
+      // Increase contrast and brightness for better text recognition
+      for (let i = 0; i < data.length; i += 4) {
+        // Convert to grayscale with better contrast
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        const enhanced = gray > 128 ? Math.min(255, gray * 1.2) : Math.max(0, gray * 0.8);
+        
+        data[i] = enhanced;     // R
+        data[i + 1] = enhanced; // G
+        data[i + 2] = enhanced; // B
+      }
+      
+      ctx!.putImageData(imageData, 0, 0);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const optimizedFile = new File([blob], file.name, { type: 'image/png' });
+          resolve(optimizedFile);
+        } else {
+          reject(new Error('Failed to optimize image'));
+        }
+      }, 'image/png', 0.9);
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/**
+ * Extract text from PDF with progress tracking
+ */
+async function extractTextFromPDF(file: File, progressCallback?: ProgressCallback): Promise<OcrResult> {
+  const startTime = Date.now();
+  
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    progressCallback?.(20);
+    
+    const pdf = await pdfjsLib.getDocument({ 
       data: arrayBuffer,
-      disableRange: true,
-      disableStream: true,
-      disableAutoFetch: true,
+      useSystemFonts: true,
+    }).promise;
+    
+    progressCallback?.(40);
+    
+    let textContent = "";
+    const totalPages = pdf.numPages;
+    
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+      
+      const pageText = content.items
+        .map((item: any) => {
+          if ('str' in item) {
+            return item.str;
+          }
+          return '';
+        })
+        .join(' ');
+      
+      textContent += pageText + '\n\n';
+      
+      // Update progress
+      const progress = 40 + (pageNum / totalPages) * 50;
+      progressCallback?.(Math.round(progress));
+    }
+    
+    progressCallback?.(100);
+    
+    return {
+      text: textContent.trim(),
+      confidence: 95, // PDFs typically have high confidence
+      pages: totalPages,
+      processingTime: Date.now() - startTime,
+      fileType: 'PDF'
+    };
+  } catch (error) {
+    throw new Error(`PDF processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Extract text from DOCX with progress tracking
+ */
+async function extractTextFromDOCX(file: File, progressCallback?: ProgressCallback): Promise<OcrResult> {
+  const startTime = Date.now();
+  
+  try {
+    progressCallback?.(20);
+    const arrayBuffer = await file.arrayBuffer();
+    progressCallback?.(60);
+    
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    progressCallback?.(100);
+    
+    return {
+      text: result.value.trim(),
+      confidence: 98, // DOCX files have very high confidence
+      processingTime: Date.now() - startTime,
+      fileType: 'DOCX'
+    };
+  } catch (error) {
+    throw new Error(`DOCX processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Extract text from plain text files
+ */
+async function extractTextFromPlainFile(file: File, progressCallback?: ProgressCallback): Promise<OcrResult> {
+  const startTime = Date.now();
+  
+  try {
+    progressCallback?.(20);
+    const text = await file.text();
+    progressCallback?.(100);
+    
+    return {
+      text: text.trim(),
+      confidence: 100, // Plain text files have perfect confidence
+      processingTime: Date.now() - startTime,
+      fileType: 'TEXT'
+    };
+  } catch (error) {
+    throw new Error(`Text file processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Run optimized OCR on images
+ */
+async function runImageOCR(file: File, progressCallback?: ProgressCallback): Promise<OcrResult> {
+  const startTime = Date.now();
+  
+  try {
+    // Validate image size
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new Error(`Image size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds maximum allowed size of 10MB for OCR processing`);
+    }
+    
+    progressCallback?.(10);
+    
+    // Optimize image for better OCR results
+    const optimizedFile = await optimizeImageForOCR(file);
+    progressCallback?.(30);
+    
+    // Run OCR with optimized settings
+    const { data } = await Tesseract.recognize(optimizedFile, 'eng', {
+      logger: (info) => {
+        if (info.status === 'recognizing text') {
+          const progress = 30 + (info.progress * 60);
+          progressCallback?.(Math.round(progress));
+        }
+      },
     });
     
-    // Set up progress listener for PDF loading
-    loadingTask.onProgress = (progress) => {
-      if (onProgress && progress.total) {
-        // Map loading progress (0-1) to 0-50% of total progress
-        onProgress(Math.min(50, Math.round((progress.loaded / progress.total) * 50)));
-      }
+    progressCallback?.(100);
+    
+    // Clean up the recognized text
+    const cleanText = data.text
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
+    
+    return {
+      text: cleanText,
+      confidence: Math.round(data.confidence),
+      processingTime: Date.now() - startTime,
+      fileType: 'IMAGE'
     };
+  } catch (error) {
+    throw new Error(`OCR processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
 
-    const pdf = await loadingTask.promise;
-    let pdfText = "";
-    let textFound = false;
-    
-    // Extract text from each page with error handling
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      try {
-        // Update progress for each page (from 50% to 100%)
-        if (onProgress) {
-          const pageProgress = 50 + Math.round((pageNum / pdf.numPages) * 50);
-          onProgress(Math.min(100, pageProgress));
-        }
-        
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        
-        // Process text items more carefully
-        const pageText = textContent.items
-          .map((item: any) => {
-            // Ensure the item has a string property
-            if (item && typeof item.str === 'string') {
-              return item.str;
-            }
-            return '';
-          })
-          .join(' ')
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim();
-        
-        if (pageText.length > 0) {
-          textFound = true;
-          pdfText += pageText + "\n";
-        }
-      } catch (pageError) {
-        console.error(`Error processing page ${pageNum}:`, pageError);
-        // Continue with next page if one fails
-      }
-    }
-    
-    if (textFound) {
-      if (onProgress) onProgress(100);
-      return {
-        text: pdfText,
-        confidence: 100,
-        pages: pdf.numPages
-      };
-    } else {
-      // If no text found, use OCR
-      console.log('[Tesseract] Starting OCR for PDF...');
-      try {
-        // For PDF OCR, we need to convert each page to an image
-        const ocrResult = await performPdfOcr(pdf, onProgress);
-        console.log('[Tesseract] OCR completed for PDF.');
-        return ocrResult;
-      } catch (ocrError) {
-        console.error('OCR for PDF failed:', ocrError);
-        throw new Error('Failed to extract text from PDF using both text extraction and OCR.');
-      }
+/**
+ * Main function to extract text from any supported file type
+ */
+export async function extractTextFromFile(file: File, progressCallback?: ProgressCallback): Promise<OcrResult> {
+  // Validate file
+  validateFile(file);
+  
+  const fileName = file.name.toLowerCase();
+  
+  progressCallback?.(5);
+  
+  try {
+    if (fileName.endsWith('.pdf')) {
+      return await extractTextFromPDF(file, progressCallback);
+    } 
+    else if (fileName.endsWith('.docx')) {
+      return await extractTextFromDOCX(file, progressCallback);
+    } 
+    else if (fileName.endsWith('.txt') || fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
+      return await extractTextFromPlainFile(file, progressCallback);
+    } 
+    else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp'].some(ext => fileName.endsWith(ext))) {
+      return await runImageOCR(file, progressCallback);
+    } 
+    else {
+      throw new Error(`Unsupported file format: ${file.name}`);
     }
   } catch (error) {
-    console.error('PDF processing error:', error);
-    throw new Error(`PDF processing failed: ${error.message || error}`);
+    progressCallback?.(0);
+    throw error;
   }
-};
+}
 
-// Perform OCR on PDF by converting pages to images
-const performPdfOcr = async (
-  pdf: any, 
-  onProgress?: (progress: number) => void
-): Promise<{ text: string; confidence: number; pages?: number }> => {
-  // Check if we're in a browser environment
-  if (typeof document === 'undefined') {
-    throw new Error('PDF OCR requires a browser environment');
+/**
+ * Get file type information
+ */
+export function getFileTypeInfo(fileName: string): { type: string; icon: string; color: string } {
+  const ext = fileName.toLowerCase().split('.').pop();
+  
+  switch (ext) {
+    case 'pdf':
+      return { type: 'PDF Document', icon: 'FileText', color: 'red' };
+    case 'docx':
+      return { type: 'Word Document', icon: 'FileText', color: 'blue' };
+    case 'txt':
+    case 'md':
+    case 'markdown':
+      return { type: 'Text File', icon: 'FileCode', color: 'green' };
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'bmp':
+    case 'tiff':
+    case 'webp':
+      return { type: 'Image File', icon: 'FileImage', color: 'purple' };
+    default:
+      return { type: 'Unknown', icon: 'File', color: 'gray' };
   }
+}
 
-  // Check if canvas is supported
-  const canvas = document.createElement('canvas');
-  if (!canvas.getContext) {
-    throw new Error('Canvas is not supported in this browser');
+/**
+ * Estimate processing time based on file size and type
+ */
+export function estimateProcessingTime(file: File): number {
+  const sizeInMB = file.size / (1024 * 1024);
+  const fileName = file.name.toLowerCase();
+  
+  if (fileName.endsWith('.pdf')) {
+    return Math.max(2, sizeInMB * 0.5); // ~0.5 seconds per MB for PDFs
+  } else if (fileName.endsWith('.docx')) {
+    return Math.max(1, sizeInMB * 0.2); // ~0.2 seconds per MB for DOCX
+  } else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp'].some(ext => fileName.endsWith(ext))) {
+    return Math.max(3, sizeInMB * 2); // ~2 seconds per MB for images (OCR is slower)
+  } else {
+    return Math.max(1, sizeInMB * 0.1); // ~0.1 seconds per MB for text files
   }
-
-  let fullText = "";
-  let totalConfidence = 0;
-  let processedPages = 0;
-  
-  // Process each page
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    try {
-      // Update progress
-      if (onProgress) {
-        const progress = 50 + Math.round((processedPages / pdf.numPages) * 50);
-        onProgress(Math.min(100, progress));
-      }
-      
-      const page = await pdf.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
-      
-      // Create canvas
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) {
-        throw new Error('Failed to get canvas context');
-      }
-      
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      
-      // Set white background
-      context.fillStyle = 'rgb(255, 255, 255)';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Render PDF page to canvas
-      await page.render({ 
-        canvasContext: context, 
-        viewport: viewport,
-        intent: 'display' // Use display intent for better OCR results
-      }).promise;
-      
-      // Convert canvas to image blob
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to create blob from canvas'));
-          }
-        }, 'image/png');
-      });
-      
-      // Create a file from the blob
-      const imageFile = new File([blob], `page-${pageNum}.png`, { type: 'image/png' });
-      
-      // Perform OCR on the image with error handling
-      try {
-        const result = await Tesseract.recognize(imageFile, 'eng+tam+hin', {
-          logger: (m) => {
-            // We could update progress within the page, but we're already updating per page
-          }
-        });
-        
-        fullText += result.data.text + "\n";
-        totalConfidence += result.data.confidence;
-        processedPages++;
-      } catch (tesseractError) {
-        console.error(`Tesseract OCR failed for page ${pageNum}:`, tesseractError);
-        // Continue with next page
-      }
-    } catch (pageError) {
-      console.error(`Error processing page ${pageNum} for OCR:`, pageError);
-      // Continue with next page
-    }
-  }
-  
-  if (processedPages === 0) {
-    throw new Error('Failed to process any pages for OCR');
-  }
-  
-  const avgConfidence = totalConfidence / processedPages;
-  
-  return {
-    text: fullText,
-    confidence: avgConfidence,
-    pages: processedPages
-  };
-};
-
-// Keep the old function name for backward compatibility
-export const performOCR = extractTextFromFile;
+}

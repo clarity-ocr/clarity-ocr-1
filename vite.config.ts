@@ -4,6 +4,10 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+optimizeDeps: {
+  exclude: ["pdfjs-dist"]
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
@@ -19,6 +23,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
+        "pdfjs-dist": path.resolve(__dirname, "node_modules/pdfjs-dist"),
       },
       extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
     },
@@ -27,11 +32,15 @@ export default defineConfig(({ mode }) => {
       __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     },
     optimizeDeps: {
-      include: ['pdfjs-dist'],
+      include: ["pdfjs-dist"],
     },
     build: {
       rollupOptions: {
-        external: ['pdfjs-dist/build/pdf.worker.min.mjs'],
+        output: {
+          manualChunks: {
+            pdfjs: ["pdfjs-dist"],
+          },
+        },
       },
     },
   };

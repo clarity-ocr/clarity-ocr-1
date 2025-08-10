@@ -1,27 +1,34 @@
 // src/components/ProtectedRoute.tsx
-import React from "react";
-import { Navigate } from "react-router-dom";
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '../firebase';
+import { Navigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 
-type Props = {
-  children: JSX.Element;
-  user: any | null;
-  loading: boolean;
-};
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  user?: any;  // 添加可选的user属性
+  loading?: boolean;  // 添加可选的loading属性
+}
 
-const ProtectedRoute: React.FC<Props> = ({ children, user, loading }) => {
-  if (loading) {
+export function ProtectedRoute({ children, user, loading }: ProtectedRouteProps) {
+  // 如果外部传入了user和loading，使用它们；否则使用useAuthState获取的状态
+  const [authUser, authLoading] = useAuthState(auth);
+  const currentUser = user !== undefined ? user : authUser;
+  const currentLoading = loading !== undefined ? loading : authLoading;
+  
+  if (currentLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div>Loading...</div>
+        <Loader2 className="w-8 h-8 animate-spin" />
       </div>
     );
   }
-
-  if (!user) {
+  
+  if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
-
-  return children;
-};
+  
+  return <>{children}</>;
+}
 
 export default ProtectedRoute;
