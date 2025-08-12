@@ -17,9 +17,6 @@
  *
  */
 
-/* ===========================
-   Imports & Dependencies
-   =========================== */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -27,13 +24,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import type { User } from "firebase/auth";
 
-/* Tailwind + shadcn/ui-like component imports (adjust if your project differs) */
 import { auth } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-/* Card components — if your project does not export these exact names, the fallback below will render instead */
 import {
   Card,
   CardHeader,
@@ -43,41 +38,22 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 
-/* Icons */
 import { Eye, EyeOff, UploadCloud, User as UserIcon, ShieldAlert, Loader2 } from "lucide-react";
-
-/* Toast (optional) */
 import { toast } from "@/components/ui/use-toast";
 
-/* ===========================
-   Fallbacks (Defensive)
-   If any shared ui component import is missing,
-   we render a minimal fallback so user doesn't see a white screen.
-   =========================== */
-
+/* Fallback if Card missing (defensive) */
 const MissingCardFallback = (props: { children?: React.ReactNode }) => (
   <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow p-6">{props.children}</div>
 );
-
 const hasCardExports =
   typeof Card !== "undefined" &&
   typeof CardHeader !== "undefined" &&
   typeof CardContent !== "undefined" &&
   typeof CardFooter !== "undefined";
+const RenderCard: React.FC<React.ComponentProps<"div"> & { children?: React.ReactNode }> = (props) =>
+  hasCardExports ? (<Card {...props}>{props.children}</Card>) : (<MissingCardFallback {...(props as any)}>{props.children}</MissingCardFallback>);
 
-/* Choose which Card to render: real or fallback */
-const RenderCard: React.FC<React.ComponentProps<"div"> & { children?: React.ReactNode }> = (props) => {
-  if (hasCardExports) {
-    // @ts-ignore - using the imported Card component from user's ui lib
-    return <Card {...props}>{props.children}</Card>;
-  }
-  return <MissingCardFallback {...(props as any)}>{props.children}</MissingCardFallback>;
-};
-
-/* ===========================
-   Validation Schema
-   =========================== */
-
+/* Validation schema (unchanged) */
 const registerSchema = z
   .object({
     name: z.string().min(2, "Please enter your full name"),
@@ -98,14 +74,7 @@ const registerSchema = z
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
-/* ===========================
-   Utility helpers
-   =========================== */
-
-/**
- * computePasswordStrength:
- * returns a score 0..3 and details
- */
+/* password strength helper (unchanged) */
 function computePasswordStrength(password: string) {
   const lengthScore = Math.min(3, Math.floor(password.length / 4)); // 0..3
   const hasLower = /[a-z]/.test(password);
@@ -125,24 +94,17 @@ function computePasswordStrength(password: string) {
   return { score, label: labels[score], colorClass: colors[score] };
 }
 
-/* Small delay utility for UX simulation */
 const sleep = (ms = 500) => new Promise((res) => setTimeout(res, ms));
-
-/* ===========================
-   Main Component
-   =========================== */
 
 export default function Register(): JSX.Element {
   const navigate = useNavigate();
 
-  /* Form state */
-  const [form, setForm] = useState<RegisterForm>({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    acceptTerms: false,
-  });
+  /* ---------- split out state per field (fixes cursor jump) ---------- */
+  const [name, setName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const [acceptTerms, setAcceptTerms] = useState<boolean>(false);
 
   /* UI state */
   const [showPassword, setShowPassword] = useState(false);
@@ -155,17 +117,14 @@ export default function Register(): JSX.Element {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  /* Defensive: if firebase/auth not configured, show message */
   useEffect(() => {
     if (!auth) {
       console.warn("[Register] Firebase auth import is missing or undefined (auth).");
     }
   }, []);
 
-  /* Compute password strength */
-  const passwordStrength = useMemo(() => computePasswordStrength(form.password), [form.password]);
+  const passwordStrength = useMemo(() => computePasswordStrength(password), [password]);
 
-  /* Preview avatar client-side */
   useEffect(() => {
     if (!avatarFile) {
       setAvatarPreview(null);
@@ -177,19 +136,38 @@ export default function Register(): JSX.Element {
     };
     reader.readAsDataURL(avatarFile);
     return () => {
-      // no cleanup needed for FileReader itself
+      // reader cleanup not strictly needed here
     };
   }, [avatarFile]);
 
-  /* Handle input changes */
-  const onChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? (checked as any) : value,
-    }));
-    // clear field error as user edits
-    setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+  /* ---------- handlers (explicit per-field) ---------- */
+  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    setFieldErrors((prev) => ({ ...prev, name: undefined }));
+    setServerError(null);
+  }, []);
+
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    setFieldErrors((prev) => ({ ...prev, email: undefined }));
+    setServerError(null);
+  }, []);
+
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    setFieldErrors((prev) => ({ ...prev, password: undefined }));
+    setServerError(null);
+  }, []);
+
+  const handleConfirmPasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmPassword(e.target.value);
+    setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+    setServerError(null);
+  }, []);
+
+  const handleAcceptTermsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setAcceptTerms(e.target.checked);
+    setFieldErrors((prev) => ({ ...prev, acceptTerms: undefined }));
     setServerError(null);
   }, []);
 
@@ -204,15 +182,21 @@ export default function Register(): JSX.Element {
     setAvatarFile(file);
   }, []);
 
-  /* wire file input click */
   const openFilePicker = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
-  /* Validate locally before attempting Firebase call */
+  /* ---------- validation using the same schema but with separate values ---------- */
   const validate = useCallback(() => {
+    const payload: RegisterForm = {
+      name,
+      email,
+      password,
+      confirmPassword,
+      acceptTerms,
+    };
     try {
-      registerSchema.parse(form);
+      registerSchema.parse(payload);
       setFieldErrors({});
       return true;
     } catch (err: any) {
@@ -231,16 +215,15 @@ export default function Register(): JSX.Element {
       }
       return false;
     }
-  }, [form]);
+  }, [name, email, password, confirmPassword, acceptTerms]);
 
-  /* Submit handler */
+  /* submit uses separate state values */
   const onSubmit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
       setServerError(null);
 
       if (!validate()) {
-        // let UI show errors
         return;
       }
 
@@ -252,28 +235,21 @@ export default function Register(): JSX.Element {
       setLoading(true);
 
       try {
-        // simulate a small delay for UX smoothness
         await sleep(350);
-
-        const credential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-        // update profile displayName (and optionally store avatar url if you upload to storage)
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
         try {
-          await updateProfile(credential.user as User, { displayName: form.name });
+          await updateProfile(credential.user as User, { displayName: name });
         } catch (updateErr) {
           console.warn("[Register] updateProfile failed", updateErr);
         }
 
-        // Optionally show a toast
         try {
           toast?.({
             title: "Account created",
             description: "Welcome! Your account has been created.",
           });
-        } catch {
-          // no-op if toast missing
-        }
+        } catch {}
 
-        // navigate to welcome/dashboard
         setTimeout(() => {
           navigate("/");
         }, 200);
@@ -289,25 +265,25 @@ export default function Register(): JSX.Element {
         setLoading(false);
       }
     },
-    [form, validate, navigate]
+    [name, email, password, validate, navigate]
   );
 
-  /* Accessibility: focus first invalid field when errors appear */
+  /* focus first invalid field */
   useEffect(() => {
     if (!fieldErrors || Object.keys(fieldErrors).length === 0) return;
     const firstKey = Object.keys(fieldErrors)[0] as keyof RegisterForm | undefined;
     if (!firstKey) return;
-    const el = document.querySelector<HTMLInputElement>(`input[name="${firstKey}"]`);
+    // map field name to specific input name/id:
+    const inputName = firstKey === "acceptTerms" ? "acceptTerms" : String(firstKey);
+    const el = document.querySelector<HTMLInputElement>(`input[name="${inputName}"]`);
     el?.focus();
   }, [fieldErrors]);
 
-  /* Small UI helpers */
   const isDisabled = loading;
 
   /* ===========================
-     Render: large, mobile friendly layout
+     Render
      =========================== */
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-indigo-50 flex items-center justify-center p-4">
       <motion.div
@@ -317,7 +293,6 @@ export default function Register(): JSX.Element {
         className="w-full max-w-3xl"
       >
         <RenderCard className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-hidden">
-          {/* Left: illustration / info */}
           <div className="hidden lg:flex flex-col justify-center items-center p-8 bg-gradient-to-b from-indigo-600 to-sky-600 text-white rounded-l-2xl">
             <div className="w-full max-w-xs">
               <div className="flex items-center gap-3 mb-6">
@@ -365,10 +340,8 @@ export default function Register(): JSX.Element {
             </div>
           </div>
 
-          {/* Right: form */}
           <div className="p-6 lg:p-10 bg-white rounded-2xl">
             <div className="max-w-md mx-auto">
-              {/* Header */}
               <div className="mb-6 text-center">
                 <h1 className="text-2xl font-bold text-gray-900">Create account</h1>
                 <p className="mt-2 text-sm text-gray-500">
@@ -376,7 +349,6 @@ export default function Register(): JSX.Element {
                 </p>
               </div>
 
-              {/* Avatar upload */}
               <form onSubmit={onSubmit} aria-describedby="register-form" className="space-y-5">
                 <div>
                   <label htmlFor="avatar" className="flex items-center gap-3">
@@ -418,7 +390,6 @@ export default function Register(): JSX.Element {
                   />
                 </div>
 
-                {/* Name */}
                 <div>
                   <Label htmlFor="name">Full name</Label>
                   <Input
@@ -426,8 +397,8 @@ export default function Register(): JSX.Element {
                     name="name"
                     type="text"
                     placeholder="Jeevasurya Palanisamy"
-                    value={form.name}
-                    onChange={onChange}
+                    value={name}
+                    onChange={handleNameChange}
                     aria-invalid={!!fieldErrors.name}
                     aria-describedby={fieldErrors.name ? "name-error" : undefined}
                     className="mt-1"
@@ -436,7 +407,6 @@ export default function Register(): JSX.Element {
                   {fieldErrors.name && <p id="name-error" className="text-xs mt-1 text-red-600">{fieldErrors.name}</p>}
                 </div>
 
-                {/* Email */}
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -444,8 +414,8 @@ export default function Register(): JSX.Element {
                     name="email"
                     type="email"
                     placeholder="you@example.com"
-                    value={form.email}
-                    onChange={onChange}
+                    value={email}
+                    onChange={handleEmailChange}
                     aria-invalid={!!fieldErrors.email}
                     aria-describedby={fieldErrors.email ? "email-error" : undefined}
                     className="mt-1"
@@ -454,7 +424,6 @@ export default function Register(): JSX.Element {
                   {fieldErrors.email && <p id="email-error" className="text-xs mt-1 text-red-600">{fieldErrors.email}</p>}
                 </div>
 
-                {/* Password + show toggle */}
                 <div>
                   <Label htmlFor="password">Password</Label>
                   <div className="relative mt-1">
@@ -463,8 +432,8 @@ export default function Register(): JSX.Element {
                       name="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="At least 6 characters"
-                      value={form.password}
-                      onChange={onChange}
+                      value={password}
+                      onChange={handlePasswordChange}
                       aria-invalid={!!fieldErrors.password}
                       aria-describedby={fieldErrors.password ? "password-error" : undefined}
                       className="pr-10"
@@ -482,7 +451,6 @@ export default function Register(): JSX.Element {
                   {fieldErrors.password && <p id="password-error" className="text-xs mt-1 text-red-600">{fieldErrors.password}</p>}
                 </div>
 
-                {/* Password strength */}
                 <div>
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
                     <div>Password strength</div>
@@ -493,7 +461,6 @@ export default function Register(): JSX.Element {
                   </div>
                 </div>
 
-                {/* Confirm password */}
                 <div>
                   <Label htmlFor="confirmPassword">Confirm password</Label>
                   <Input
@@ -501,8 +468,8 @@ export default function Register(): JSX.Element {
                     name="confirmPassword"
                     type="password"
                     placeholder="Repeat your password"
-                    value={form.confirmPassword}
-                    onChange={onChange}
+                    value={confirmPassword}
+                    onChange={handleConfirmPasswordChange}
                     aria-invalid={!!fieldErrors.confirmPassword}
                     aria-describedby={fieldErrors.confirmPassword ? "confirm-error" : undefined}
                     className="mt-1"
@@ -511,14 +478,13 @@ export default function Register(): JSX.Element {
                   {fieldErrors.confirmPassword && <p id="confirm-error" className="text-xs mt-1 text-red-600">{fieldErrors.confirmPassword}</p>}
                 </div>
 
-                {/* Terms */}
                 <div className="flex items-start gap-2">
                   <input
                     id="acceptTerms"
                     name="acceptTerms"
                     type="checkbox"
-                    checked={form.acceptTerms}
-                    onChange={onChange}
+                    checked={acceptTerms}
+                    onChange={handleAcceptTermsChange}
                     className="mt-1"
                     aria-invalid={!!fieldErrors.acceptTerms}
                     required
@@ -532,10 +498,8 @@ export default function Register(): JSX.Element {
                 </div>
                 {fieldErrors.acceptTerms && <p className="text-xs mt-1 text-red-600">{fieldErrors.acceptTerms}</p>}
 
-                {/* Server error */}
                 {serverError && <div className="rounded-md bg-red-50 text-red-700 p-3 text-sm">{serverError}</div>}
 
-                {/* Submit */}
                 <div className="pt-1">
                   <Button type="submit" disabled={isDisabled} className="w-full flex items-center justify-center gap-3">
                     {loading ? (
@@ -543,33 +507,22 @@ export default function Register(): JSX.Element {
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Creating account...
                       </>
-                    ) : (
-                      "Create account"
-                    )}
+                    ) : "Create account"}
                   </Button>
                 </div>
 
-                {/* Footer small links */}
                 <div className="text-center text-sm text-gray-500">
                   Already have an account?{" "}
-                  <Link to="/login" className="text-indigo-600 underline">
-                    Sign in
-                  </Link>
+                  <Link to="/login" className="text-indigo-600 underline">Sign in</Link>
                 </div>
               </form>
             </div>
           </div>
         </RenderCard>
 
-        {/* Terms modal */}
         <AnimatePresence>
           {termsOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 flex items-center justify-center p-4"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/40" onClick={() => setTermsOpen(false)} aria-hidden />
               <motion.div initial={{ y: 20 }} animate={{ y: 0 }} exit={{ y: 20 }} className="relative max-w-2xl w-full bg-white rounded-xl shadow-lg p-6 z-50">
                 <div className="flex items-start justify-between">
