@@ -425,7 +425,7 @@ export default function Register(): JSX.Element {
                     id="name"
                     name="name"
                     type="text"
-                    placeholder="Jeeva Surya Palanisamy"
+                    placeholder="Jeevasurya Palanisamy"
                     value={form.name}
                     onChange={onChange}
                     aria-invalid={!!fieldErrors.name}
