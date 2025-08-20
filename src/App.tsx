@@ -14,7 +14,7 @@ import FeaturesPage from '@/pages/FeaturesPage';
 import AboutPage from '@/pages/AboutPage';
 import TermsPage from '@/pages/TermsPage';
 import PrivacyPage from '@/pages/PrivacyPage';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import ProtectedRoute from '@/components/ProtectedRoute'; // Import our new component
 import LogoDisplay from './pages/LogoDisplay';
 
 const App: React.FC = () => {
@@ -24,29 +24,25 @@ const App: React.FC = () => {
         <Toaster position="top-right" />
         <Routes>
           {/* --- PUBLIC AUTHENTICATION & INFORMATIONAL ROUTES --- */}
+          {/* These pages do not require a user to be logged in. */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/logoback" element={<LogoDisplay/>} />
-
-          {/* These pages should be public for users to learn about your app */}
-          <Route path="/" element={<Index />} />
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           
-          {/* This page is for sharing, so it must be public */}
-          <Route path="/share/:id" element={<SharedChecklist />} />
-
           {/* --- PROTECTED APPLICATION ROUTES --- */}
-          {/* These pages require the user to be logged in */}
+          {/* All routes below require the user to be logged in. */}
+          {/* Our new ProtectedRoute component handles the logic. */}
           <Route
-            path="/checklist/:id"
+            path="/"
             element={
               <ProtectedRoute>
-                <Checklist />
+                <Index />
               </ProtectedRoute>
             }
           />
@@ -58,8 +54,24 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/checklist/:id"
+            element={
+              <ProtectedRoute>
+                <Checklist />
+              </ProtectedRoute>
+            }
+          />
+           <Route
+            path="/share/:id"
+            element={
+              <ProtectedRoute>
+                <SharedChecklist />
+              </ProtectedRoute>
+            }
+          />
           
-          {/* Fallback route: Navigate to the home page for any unknown URL */}
+          {/* Fallback route for any unknown URL */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </BrowserRouter>

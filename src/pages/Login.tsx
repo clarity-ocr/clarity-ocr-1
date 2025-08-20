@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom'; // Import useLocation
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,11 +8,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
-import { signInWithEmailAndPassword, signInWithRedirect, getRedirectResult, AuthError, onAuthStateChanged, User } from 'firebase/auth';
-import { auth, googleProvider } from '@/firebase';
-
-// Define the path to redirect to after successful login for easy configuration
-const HOME_PATH = '/';
+import { signInWithEmailAndPassword, AuthError, onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/firebase';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -20,7 +17,7 @@ const loginSchema = z.object({
 });
 
 type FormErrors = { email?: string; password?: string; general?: string };
-type LoadingState = 'idle' | 'email-password' | 'google-redirect' | 'initializing';
+type LoadingState = 'idle' | 'email-password' | 'initializing';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -31,43 +28,27 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation(); // Get location object
 
-  // This single useEffect handles all initial auth states (redirects, existing sessions).
+  // Determine where to redirect after login. Default to home page '/'.
+  const from = location.state?.from?.pathname || '/';
+
   useEffect(() => {
-    // 1. Check for a Google Sign-In redirect result first.
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          toast({
-            title: 'Sign-In Successful',
-            description: `Welcome back, ${result.user.displayName || 'User'}!`,
-          });
-          navigate(HOME_PATH);
-        } else {
-          // 2. If no redirect, check for an existing persistent session.
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-              // User is already logged in, so redirect them.
-              navigate(HOME_PATH);
-            } else {
-              // No user is signed in. The page is ready for interaction.
-              const rememberedEmail = localStorage.getItem('clarityOcrRememberedEmail');
-              if (rememberedEmail) {
-                setEmail(rememberedEmail);
-                setRememberMe(true);
-              }
-              setLoadingState('idle');
-            }
-          });
-          // Cleanup the listener when the component unmounts.
-          return () => unsubscribe();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // If user is already logged in, send them to their original destination
+        navigate(from, { replace: true });
+      } else {
+        const rememberedEmail = localStorage.getItem('clarityOcrRememberedEmail');
+        if (rememberedEmail) {
+          setEmail(rememberedEmail);
+          setRememberMe(true);
         }
-      })
-      .catch((error) => {
-        toast({ title: 'Google Sign-In Failed', description: error.message, variant: 'destructive' });
         setLoadingState('idle');
-      });
-  }, [navigate, toast]);
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate, from]);
 
   const handleSuccessfulSignIn = useCallback((user: User) => {
     toast({
@@ -79,8 +60,9 @@ export default function Login() {
     } else {
       localStorage.removeItem('clarityOcrRememberedEmail');
     }
-    navigate(HOME_PATH);
-  }, [email, rememberMe, toast, navigate]);
+    // Navigate to the originally requested page, or to the home page
+    navigate(from, { replace: true });
+  }, [email, rememberMe, toast, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,23 +87,12 @@ export default function Login() {
           setErrors({ general: "Invalid email or password. Please try again." });
           break;
         case 'auth/too-many-requests':
-          setErrors({ general: "Access temporarily disabled due to too many failed login attempts. Please try again later." });
+          setErrors({ general: "Access temporarily disabled due to too many failed login attempts." });
           break;
         default:
           setErrors({ general: "An unexpected error occurred. Please try again." });
           break;
       }
-      setLoadingState('idle');
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setLoadingState('google-redirect');
-    try {
-      googleProvider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithRedirect(auth, googleProvider);
-    } catch (error: any) {
-      toast({ title: 'Redirect Failed', description: "Could not initiate Google Sign-In.", variant: 'destructive' });
       setLoadingState('idle');
     }
   };
@@ -182,10 +153,6 @@ export default function Login() {
               </div>
               <Button type="submit" className="w-full text-base font-semibold" disabled={loadingState !== 'idle'}>
                 {loadingState === 'email-password' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sign In'}
-              </Button>
-              <div className="relative text-center"><span className="text-xs uppercase text-gray-400 bg-white px-2 relative z-10">Or continue with</span><hr className="absolute top-1/2 w-full -z-0"/></div>
-              <Button onClick={handleGoogleSignIn} variant="outline" className="w-full text-base font-semibold" disabled={loadingState !== 'idle'}>
-                {loadingState === 'google-redirect' ? <Loader2 className="h-5 w-5 animate-spin" /> : <><svg className="mr-2 h-5 w-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continue with Google</>}
               </Button>
             </form>
           </CardContent>
