@@ -49,6 +49,7 @@ export interface TaskItem {
   dependencies: string[]; // IDs of tasks this task depends on
   subtasks: TaskItem[]; // Nested subtasks
   parentId?: string; // ID of the parent task if this is a subtask
+  groupId?: string; // ID of the group this task belongs to (now optional)
 
   // --- Metadata & Context ---
   createdAt: string; // ISO 8601 timestamp (YYYY-MM-DDTHH:mm:ss.sssZ)

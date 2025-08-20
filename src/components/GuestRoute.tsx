@@ -1,6 +1,6 @@
-// src/components/ProtectedRoute.tsx
+// src/components/GuestRoute.tsx
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
@@ -10,22 +10,21 @@ const FullPageLoader = () => (
   </div>
 );
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const GuestRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-  const location = useLocation();
 
   // 1. While the auth state is loading, show a spinner and wait.
   if (loading) {
     return <FullPageLoader />;
   }
 
-  // 2. After loading is complete, if there is no user, redirect to login.
-  if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  // 2. After loading, if a user exists, redirect them away from the guest page.
+  if (user) {
+    return <Navigate to="/" replace />;
   }
 
-  // 3. If loading is complete and there IS a user, show the protected content.
+  // 3. If loading is complete and there IS NO user, show the guest page (Login/Register).
   return <>{children}</>;
 };
 
-export default ProtectedRoute;
+export default GuestRoute;
