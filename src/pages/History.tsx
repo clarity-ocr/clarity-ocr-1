@@ -1,5 +1,5 @@
 // src/pages/History.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +8,11 @@ import { ArrowLeft, History as HistoryIcon, Calendar, FileText, Trash2, Eye, Loa
 import { getHistory, deleteHistoryItem } from '@/services/historyService';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { auth } from '@/firebase'; // ✅ Import auth here
 
 interface HistoryItem {
   id: string;
-  fileName: string;
+  fileName: string; // ✅ Now required
   createdAt: string;
   analysisResult: {
     totalTasks: number;
@@ -22,7 +23,6 @@ interface HistoryItem {
   };
 }
 
-// Function component instead of arrow function for better default export support
 function HistoryPage() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +34,7 @@ function HistoryPage() {
     const fetchHistory = async () => {
       try {
         const items = await getHistory();
-        setHistoryItems(items);
+        setHistoryItems(items); // ✅ Now works
       } catch (error) {
         toast({
           title: "Error",
@@ -52,7 +52,11 @@ function HistoryPage() {
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     try {
-      await deleteHistoryItem(id);
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      await deleteHistoryItem(user.uid, id);
       setHistoryItems(prev => prev.filter(item => item.id !== id));
       toast({
         title: "Deleted",
@@ -174,5 +178,4 @@ function HistoryPage() {
   );
 }
 
-// Default export
 export default HistoryPage;
