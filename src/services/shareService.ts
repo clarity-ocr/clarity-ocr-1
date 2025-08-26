@@ -1,83 +1,38 @@
-// src/services/shareService.ts
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { HistoryItem } from '@/types/history';
+import { HistoryItem } from '@/types/task';
 
-export const createPublicShareLink = async (historyId: string): Promise<string> => {
-  try {
-    const historyDocRef = doc(db, 'history', historyId);
-    const historyDoc = await getDoc(historyDocRef);
-    
-    if (!historyDoc.exists()) {
-      throw new Error('History item not found');
-    }
-    
-    // Update sharing settings
-    await updateDoc(historyDocRef, {
-      'sharing.isPublic': true,
-      'sharing.expiresAt': null,
-      'sharing.password': null,
-      updatedAt: serverTimestamp()
-    });
-    
-    return `${window.location.origin}/public/checklist/${historyId}`;
-  } catch (error) {
-    console.error('Error creating public share link:', error);
-    throw error;
-  }
+export const createPublicShareLink = async (historyItem: HistoryItem): Promise<string> => {
+  if (historyItem.shareId) return historyItem.shareId;
+  const publicDocRef = doc(db, 'publicChecklists', historyItem.id);
+  const publicData = {
+    originalOwnerId: historyItem.userId,
+    originalDocId: historyItem.id,
+    title: historyItem.title,
+    fileName: historyItem.fileName,
+    analysisResult: historyItem.analysisResult,
+    createdAt: historyItem.createdAt,
+    sharedAt: serverTimestamp(),
+  };
+  await setDoc(publicDocRef, publicData);
+  const originalDocRef = doc(db, `users/${historyItem.userId}/history`, historyItem.id);
+  await updateDoc(originalDocRef, { shareId: historyItem.id });
+  return historyItem.id;
 };
 
-// Generate a shareable link for a checklist
-export const generateShareLink = (id: string): string => {
-  return `${window.location.origin}/share/${id}`;
+export const getPublicChecklist = async (shareId: string): Promise<any> => {
+  const docRef = doc(db, 'publicChecklists', shareId);
+  const docSnap = await getDoc(docRef);
+  if (!docSnap.exists()) throw new Error('Public checklist not found.');
+  return { id: docSnap.id, ...docSnap.data() };
 };
 
-// Increment the share count for analytics
-export const incrementShareCount = async (id: string): Promise<void> => {
-  try {
-    const historyDocRef = doc(db, 'history', id);
-    const historyDoc = await getDoc(historyDocRef);
-    
-    if (!historyDoc.exists()) {
-      throw new Error('History item not found');
+// ✅ FIXED: Export the WhatsApp function
+export const shareViaWhatsApp = async (shareLink: string, title: string) => {
+    const text = encodeURIComponent(`Check out this project plan: ${title}\n\n${shareLink}`);
+    // A simple prompt is used for demonstration. A real app might use a more sophisticated contact picker.
+    const phoneNumber = prompt(`Enter the recipient's full phone number (including country code, e.g., +1...):`);
+    if (phoneNumber) {
+        window.open(`https://wa.me/${phoneNumber.replace(/\D/g, '')}?text=${text}`, '_blank');
     }
-    
-    const currentData = historyDoc.data();
-    const currentShareCount = currentData?.shareCount || 0;
-    
-    await updateDoc(historyDocRef, {
-      shareCount: currentShareCount + 1,
-      updatedAt: serverTimestamp()
-    });
-  } catch (error) {
-    console.error('Error incrementing share count:', error);
-    throw error;
-  }
-};
-
-// Get shared checklist data
-export const getSharedChecklist = async (id: string): Promise<HistoryItem | null> => {
-  try {
-    const historyDocRef = doc(db, 'history', id);
-    const historyDoc = await getDoc(historyDocRef);
-    
-    if (!historyDoc.exists()) {
-      return null;
-    }
-    
-    const data = historyDoc.data();
-    
-    // Check if sharing is enabled
-    if (!data?.sharing?.isPublic) {
-      throw new Error('This checklist is not publicly shared');
-    }
-    
-    return {
-      id: historyDoc.id,
-      ...data
-    } as HistoryItem;
-  } catch (error) {
-    console.error('Error fetching shared checklist:', error);
-    throw error;
-  }
 };

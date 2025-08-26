@@ -1,78 +1,66 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './contexts/AuthContext';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import ForgotPassword from '@/pages/ForgotPassword';
-import ResetPassword from '@/pages/ResetPassword';
-import Index from '@/pages/Index';
-import Checklist from './pages/Checklist';
+
+// --- CONTEXT & AUTH ---
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// --- PAGE COMPONENTS ---
+import Index from './pages/Index';
+import Login from './pages/Login'; // Assuming you have these pages
+import Register from './pages/Register'; // Assuming you have these pages
+import ChecklistPage from './pages/Checklist';
 import History from './pages/History';
-import SharedChecklist from './pages/SharedChecklist';
-import FeaturesPage from '@/pages/FeaturesPage';
-import AboutPage from '@/pages/AboutPage';
-import TermsPage from '@/pages/TermsPage';
-import PrivacyPage from '@/pages/PrivacyPage';
-import ProtectedRoute from '@/components/ProtectedRoute'; // Import our new component
-import LogoDisplay from './pages/LogoDisplay';
+import PricingPage from './pages/PricingPage';
+import AdminPage from './pages/AdminPage'; // For creating coupons
+import PublicChecklistPage from './pages/PublicChecklist';
+import NotFound from './pages/NotFound';
+
+/**
+ * A special route component that only allows access to users with an 'admin' claim.
+ */
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { user, loading } = useAuth();
+    if (loading) return <div className="flex h-screen w-full items-center justify-center">Loading...</div>; // Or a spinner component
+    if (!user || !user.admin) {
+        // If not an admin, redirect to the home page.
+        return <Navigate to="/" replace />;
+    }
+    return <>{children}</>;
+};
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Toaster position="top-right" />
+        <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
         <Routes>
-          {/* --- PUBLIC AUTHENTICATION & INFORMATIONAL ROUTES --- */}
-          {/* These pages do not require a user to be logged in. */}
+          {/* ====================================================== */}
+          {/*                  PUBLIC ROUTES                         */}
+          {/* ====================================================== */}
+          <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/logoback" element={<LogoDisplay/>} />
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/public/:id" element={<PublicChecklistPage />} />
+
+          {/* ====================================================== */}
+          {/*                  PROTECTED ROUTES                      */}
+          {/* ====================================================== */}
+          <Route path="/checklist/:id" element={<ProtectedRoute><ChecklistPage /></ProtectedRoute>} />
+          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           
-          {/* --- PROTECTED APPLICATION ROUTES --- */}
-          {/* All routes below require the user to be logged in. */}
-          {/* Our new ProtectedRoute component handles the logic. */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/history"
-            element={
-              <ProtectedRoute>
-                <History />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/checklist/:id"
-            element={
-              <ProtectedRoute>
-                <Checklist />
-              </ProtectedRoute>
-            }
-          />
-           <Route
-            path="/share/:id"
-            element={
-              <ProtectedRoute>
-                <SharedChecklist />
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Fallback route for any unknown URL */}
-          <Route path="*" element={<Navigate to="/" />} />
+          {/* ====================================================== */}
+          {/*                  ADMIN-ONLY ROUTE                      */}
+          {/* ====================================================== */}
+          <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+
+          {/* ====================================================== */}
+          {/*                  FALLBACK ROUTE                        */}
+          {/* ====================================================== */}
+          <Route path="/not-found" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/not-found" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

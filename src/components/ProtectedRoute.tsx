@@ -3,10 +3,9 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-// A full-page loader component for a better user experience during auth checks
 const FullPageLoader: React.FC = () => (
-  <div className="flex h-screen w-screen items-center justify-center bg-slate-100 dark:bg-slate-900">
-    <Loader2 className="h-12 w-12 animate-spin text-indigo-500" />
+  <div className="flex h-screen w-screen items-center justify-center bg-background">
+    <Loader2 className="h-12 w-12 animate-spin text-primary" />
   </div>
 );
 
@@ -18,20 +17,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  // 1. While Firebase is checking the auth state, show a loading screen.
-  // This prevents the page from flashing the login screen before the user is confirmed.
+  // 1. While the AuthProvider is determining the user's status, show a loader.
+  // This is the key to preventing the "flash and redirect" problem.
   if (loading) {
     return <FullPageLoader />;
   }
 
-  // 2. If the user is not authenticated, redirect them to the login page.
-  // CRITICAL: We pass the current location in the 'state'.
-  // This tells the login page where to redirect back to after a successful login.
+  // 2. Once loading is complete, check if a user exists.
+  // For this app, if no user exists (even anonymous), it means something is wrong.
+  // We redirect them to the home page to restart the process.
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  // 3. If the user is authenticated, render the requested component.
+  // 3. If loading is false and a user exists, they are authorized. Render the page.
   return children;
 };
 
