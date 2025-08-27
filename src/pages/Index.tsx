@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Eye, Sparkles, Zap, FileText, Target, Clock, Menu, X, User,
   LogOut, History as HistoryIcon, Loader2, Star, Settings, CheckCircle,
@@ -32,12 +32,21 @@ const FAQ_ITEMS = [ { question: "What file formats do you support?", answer: "We
 
 export default function Index() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
+
+  // ✅ ADDED: Redirect to login if user is not authenticated
+  useEffect(() => {
+    // This assumes the AuthProvider handles the initial loading state.
+    // When the auth state is resolved and there is no user, redirect.
+    if (user === null) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   const handleAnalyze = useCallback(async (content: string, fileName?: string) => {
     if (!user) { toast({ title: "Authentication Required", description: "Please log in or sign up to analyze documents.", variant: "destructive" }); navigate('/login'); return; }
@@ -73,7 +82,12 @@ export default function Index() {
       <Button variant="ghost" onClick={() => navigate('/pricing')}>Pricing</Button>
       <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild> <Button variant="ghost" className="relative h-10 w-10 rounded-full"> <User className="h-6 w-6 text-slate-600 dark:text-slate-300" /> </Button> </DropdownMenuTrigger>
+        {/* ✅ FIXED: Removed whitespace and wrapped button properly to be the single child */}
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+            <User className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+          </Button>
+        </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
           <DropdownMenuLabel className="font-normal"><div className="flex flex-col space-y-1"><p className="text-sm font-medium leading-none">My Account</p><p className="text-xs leading-none text-muted-foreground truncate">{user?.email}</p></div></DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -86,6 +100,15 @@ export default function Index() {
       </DropdownMenu>
     </>
   );
+  
+  // ✅ ADDED: Show a loader while checking auth to prevent content flashing
+  if (!user) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <Loader2 className="h-10 w-10 animate-spin text-slate-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
@@ -116,7 +139,6 @@ export default function Index() {
             <div><h3 className="font-semibold text-white mb-4">Navigate</h3><ul className="space-y-2"><li><a href="#features" onClick={(e) => { e.preventDefault(); scrollToSection('features') }} className="hover:text-white transition-colors">Features</a></li><li><a href="#testimonials" onClick={(e) => { e.preventDefault(); scrollToSection('testimonials') }} className="hover:text-white transition-colors">Testimonials</a></li><li><a href="#faq" onClick={(e) => { e.preventDefault(); scrollToSection('faq') }} className="hover:text-white transition-colors">FAQ</a></li></ul></div>
             <div><h3 className="font-semibold text-white mb-4">Legal</h3><ul className="space-y-2"><li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li><li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li></ul></div>
           </div>
-          {/* ✅ FIXED: Corrected JSX closing tag from </dvi> to </div> */}
           <div className="mt-12 border-t border-slate-700 pt-8 flex flex-col sm:flex-row justify-between items-center">
             <p className="text-sm">&copy; {new Date().getFullYear()} Clarity OCR. All rights reserved.</p>
             <div className="flex space-x-4 mt-4 sm:mt-0">
