@@ -1,25 +1,21 @@
-// src/pages/History.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // ✅ FIX: Removed unused CardContent
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, History as HistoryIcon, Calendar, FileText, Trash2, Eye, Loader2 } from 'lucide-react';
 import { getHistory, deleteHistoryItem } from '@/services/historyService';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { auth } from '@/firebase'; // ✅ Import auth here
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HistoryItem {
   id: string;
-  fileName: string; // ✅ Now required
-  createdAt: string;
-  analysisResult: {
-    totalTasks: number;
-    groups: Array<{
-      name: string;
-      tasks: Array<any>;
-    }>;
+  fileName?: string;
+  createdAt?: string;
+  analysisResult?: {
+    totalTasks?: number;
+    groups?: Array<any>;
   };
 }
 
@@ -29,16 +25,20 @@ function HistoryPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchHistory = async () => {
+      if (!user) return;
+
       try {
         const items = await getHistory();
-        setHistoryItems(items); // ✅ Now works
+        setHistoryItems(items);
       } catch (error) {
+        console.error("Failed to fetch history:", error);
         toast({
           title: "Error",
-          description: "Failed to load history",
+          description: "Failed to load history. Please try again later.",
           variant: "destructive"
         });
       } finally {
@@ -47,15 +47,15 @@ function HistoryPage() {
     };
 
     fetchHistory();
-  }, [toast]);
+  }, [toast, user]);
 
   const handleDelete = async (id: string) => {
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to delete items.", variant: "destructive" });
+      return;
+    }
     setDeletingId(id);
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
       await deleteHistoryItem(user.uid, id);
       setHistoryItems(prev => prev.filter(item => item.id !== id));
       toast({
@@ -73,29 +73,37 @@ function HistoryPage() {
     }
   };
 
+  const renderDate = (createdAt?: string) => {
+    try {
+        if (!createdAt) return 'Date unknown';
+        return formatDistanceToNow(new Date(createdAt), { addSuffix: true });
+    } catch (error) {
+        return 'Invalid date';
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
-          <p className="text-lg">Loading history...</p>
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-lg text-muted-foreground">Loading history...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/10">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
+              size="icon"
               onClick={() => navigate('/')}
-              className="flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back
             </Button>
             <div>
               <h1 className="text-2xl font-bold">History</h1>
@@ -106,33 +114,41 @@ function HistoryPage() {
         </div>
 
         {historyItems.length === 0 ? (
-          <Card className="p-12 text-center">
+          <Card className="p-12 text-center bg-card/50">
             <HistoryIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-xl font-semibold mb-2">No history yet</h3>
             <p className="text-muted-foreground mb-6">
-              Analyze a document to see it appear here
+              Analyze a document and it will appear here.
             </p>
             <Button onClick={() => navigate('/')}>
-              Analyze a Document
+              Analyze a New Document
             </Button>
           </Card>
         ) : (
           <div className="space-y-4">
             {historyItems.map((item) => (
-              <Card key={item.id} className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <FileText className="w-5 h-5" />
-                        {item.fileName}
+              <Card key={item.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-grow min-w-0">
+                      <CardTitle className="text-lg flex items-center gap-2 truncate">
+                        <FileText className="w-5 h-5 flex-shrink-0" />
+                        <span className="truncate">{item.fileName || 'Untitled Analysis'}</span>
                       </CardTitle>
                       <CardDescription className="flex items-center gap-2 mt-1">
                         <Calendar className="w-4 h-4" />
-                        {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                        {renderDate(item.createdAt)}
                       </CardDescription>
+                      <div className="flex items-center gap-4 mt-3">
+                        <Badge variant="secondary">
+                          {item.analysisResult?.totalTasks ?? 0} tasks
+                        </Badge>
+                        <Badge variant="outline">
+                          {item.analysisResult?.groups?.length ?? 0} categories
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
                       <Button
                         variant="outline"
                         size="sm"
@@ -142,12 +158,13 @@ function HistoryPage() {
                         <Eye className="w-4 h-4" />
                         View
                       </Button>
+                      {/* ✅ FIX: Removed the incorrect 'outline' prop. Kept variant="destructive" for red color. */}
                       <Button
-                        variant="outline"
+                        variant="destructive"
                         size="sm"
                         onClick={() => handleDelete(item.id)}
                         disabled={deletingId === item.id}
-                        className="flex items-center gap-1 text-destructive hover:text-destructive"
+                        className="flex items-center gap-1"
                       >
                         {deletingId === item.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -159,16 +176,6 @@ function HistoryPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-4">
-                    <Badge variant="secondary">
-                      {item.analysisResult.totalTasks} tasks
-                    </Badge>
-                    <Badge variant="outline">
-                      {item.analysisResult.groups.length} categories
-                    </Badge>
-                  </div>
-                </CardContent>
               </Card>
             ))}
           </div>

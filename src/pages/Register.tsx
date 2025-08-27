@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,13 +8,12 @@ import { useToast } from '@/components/ui/use-toast';
 import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
-// --- REMOVED Google-related imports ---
 import { 
   createUserWithEmailAndPassword, 
   updateProfile, 
+  sendEmailVerification, // ✅ 1. Import the sendEmailVerification function
   AuthError, 
-  onAuthStateChanged, 
-  User 
+  onAuthStateChanged,
 } from 'firebase/auth';
 import { auth } from '@/firebase';
 
@@ -27,7 +26,6 @@ const registerSchema = z.object({
 });
 
 type FormErrors = { name?: string; email?: string; password?: string; general?: string };
-// --- REMOVED 'google-redirect' from LoadingState ---
 type LoadingState = 'idle' | 'email-password' | 'initializing';
 
 export default function Register() {
@@ -42,7 +40,8 @@ export default function Register() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      // ✅ 2. Only redirect if the user is ALSO email verified
+      if (user && user.emailVerified) {
         navigate(HOME_PATH);
       } else {
         setLoadingState('idle');
@@ -51,11 +50,6 @@ export default function Register() {
     return () => unsubscribe();
   }, [navigate]);
   
-  const handleSuccessfulAuth = useCallback((user: User, message: string) => {
-    toast({ title: 'Success', description: message });
-    navigate(HOME_PATH);
-  }, [navigate, toast]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -69,8 +63,20 @@ export default function Register() {
     setLoadingState('email-password');
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // Update the user's profile with their name first
       await updateProfile(userCredential.user, { displayName: name });
-      handleSuccessfulAuth(userCredential.user, 'Your account has been created successfully!');
+      
+      // ✅ 3. Send the verification email
+      await sendEmailVerification(userCredential.user);
+      
+      toast({
+        title: 'Account Created!',
+        description: "We've sent a verification link to your email address.",
+      });
+
+      // ✅ 4. Redirect to the new verify-email page instead of the homepage
+      navigate('/verify-email');
+      
     } catch (error: any) {
       const authError = error as AuthError;
       if (authError.code === 'auth/email-already-in-use') {
@@ -82,8 +88,6 @@ export default function Register() {
     }
   };
   
-  // --- REMOVED handleGoogleSignIn function ---
-
   if (loadingState === 'initializing') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -140,9 +144,6 @@ export default function Register() {
               <Button type="submit" className="w-full text-base font-semibold" disabled={loadingState !== 'idle'}>
                 {loadingState === 'email-password' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create Account'}
               </Button>
-              
-              {/* --- REMOVED Google Sign-In Button and Divider --- */}
-              
             </form>
           </CardContent>
           <CardFooter className="p-8 justify-center bg-slate-50 border-t">
