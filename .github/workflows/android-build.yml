@@ -1,0 +1,52 @@
+name: Clarity OCR APK
+
+# This workflow runs whenever you push code to the 'main' branch
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Use a standard Linux machine for the build
+
+    steps:
+      # Step 1: Check out your repository's code
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up the Java environment (required for Android builds)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # Step 3: Set up Node.js to build your web app
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Use a version that matches your project
+          cache: 'npm'
+
+      # Step 4: Install your web app's dependencies and build it
+      - name: Install Dependencies and Build Web App
+        run: |
+          npm ci
+          npm run build
+
+      # Step 5: Sync the web build with the native Android project
+      - name: Sync Capacitor Project
+        run: npx cap sync android
+
+      # Step 6: Build the Debug APK using Gradle
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+        working-directory: ./android
+
+      # Step 7: Upload the generated APK as a downloadable artifact
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
