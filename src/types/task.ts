@@ -38,6 +38,7 @@ export interface AnalysisResult {
 // New type for a full history document from Firestore
 export interface HistoryItem {
     id: string;
+    uid: string;
     title: string; 
     fileName: string; 
     analysisResult: AnalysisResult;
