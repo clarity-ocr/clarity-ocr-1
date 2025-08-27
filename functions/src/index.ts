@@ -1,213 +1,192 @@
+import {setGlobalOptions} from "firebase-functions";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import Stripe from "stripe";
+import * as logger from "firebase-functions/logger";
 
+// Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
+setGlobalOptions({ maxInstances: 10 });
+
+// --- CONFIGURATION ---
+// ✅ CHANGED: Read the admin email from process.env, the modern and reliable way.
+const adminEmail = process.env.APP_ADMIN_EMAIL;
 
 // ===================================================================================
-// --- CONFIGURATION & INITIALIZATION ---
+// --- ADMIN-ONLY FUNCTIONS ---
 // ===================================================================================
 
-const stripe = new Stripe(functions.config().stripe.secret, {
-  // ✅ FIXED: Using the exact, strange version string your installed types require.
-  // This is the most critical fix for the Stripe-related error.
-  apiVersion: "2025-07-30.basil",
-});
-const adminEmail = functions.config().app.admin_email;
-
-
-// ===================================================================================
-// --- USER-FACING CALLABLE FUNCTIONS ---
-// ===================================================================================
-
-export const createCheckoutSession = functions.https.onCall(
-  // ✅ FIXED: Using the single 'request' object signature that your library version expects.
-  async (request) => {
-    const data = request.data as { priceId: string; coupon?: string };
-    const auth = request.auth;
-
-    if (!auth?.uid) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
-    }
-
-    if (!request.rawRequest?.headers.origin) {
-        throw new functions.https.HttpsError("internal", "Could not determine app origin.");
-    }
-
-    const successUrl = `${request.rawRequest.headers.origin}/history`;
-    const cancelUrl = `${request.rawRequest.headers.origin}/pricing`;
-
-    const checkoutOptions: Stripe.Checkout.SessionCreateParams = {
-      payment_method_types: ["card"],
-      mode: "subscription",
-      line_items: [{ price: data.priceId, quantity: 1 }],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      metadata: { userId: auth.uid },
-      allow_promotion_codes: true,
-    };
-
-    if (data.coupon) {
-      try {
-        checkoutOptions.discounts = [{ coupon: data.coupon }];
-      } catch (error) {
-        console.warn("Invalid coupon code:", data.coupon);
-        throw new functions.https.HttpsError("invalid-argument", "The coupon code is not valid.");
-      }
-    }
-
-    const session = await stripe.checkout.sessions.create(checkoutOptions);
-    return { sessionId: session.id, url: session.url };
-  }
-);
-
-export const startTrial = functions.https.onCall(
-    // ✅ FIXED: Using the single 'request' object signature.
-    async (request) => {
-      const data = request.data as { plan: 'pro' | 'business' };
-      const auth = request.auth;
-      
-      if (!auth?.uid) {
-        throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
-      }
-      
-      const user = await admin.auth().getUser(auth.uid);
-      if (user.customClaims?.stripeRole && user.customClaims.stripeRole !== 'free') {
-          throw new functions.https.HttpsError("already-exists", "You already have an active plan or trial.");
-      }
-  
-      const trialEndsAt = Math.floor(Date.now() / 1000) + (90 * 24 * 60 * 60);
-  
-      await admin.auth().setCustomUserClaims(auth.uid, {
-          stripeRole: data.plan,
-          trialEndsAt: trialEndsAt,
-      });
-  
-      await db.collection("users").doc(auth.uid).set({
-          stripeRole: data.plan,
-          trialEndsAt: admin.firestore.Timestamp.fromMillis(trialEndsAt * 1000),
-      }, { merge: true });
-  
-      return { success: true, message: `Trial for ${data.plan} plan started!` };
-    }
-  );
-
-export const createBillingPortalSession = functions.https.onCall(
-  // ✅ FIXED: Using the single 'request' object signature.
-  async (request) => {
-    const auth = request.auth;
-    if (!auth?.uid) {
-      throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
-    }
-
-    if (!request.rawRequest?.headers.origin) {
-        throw new functions.https.HttpsError("internal", "Could not determine app origin.");
-    }
-    
-    const userDoc = await db.collection("users").doc(auth.uid).get();
-    const customerId = userDoc.data()?.stripeCustomerId;
-
-    if (!customerId) {
-        throw new functions.https.HttpsError("not-found", "Stripe customer information not found.");
-    }
-
-    const portalSession = await stripe.billingPortal.sessions.create({
-        customer: customerId,
-        return_url: `${request.rawRequest.headers.origin}/pricing`,
-    });
-    return { url: portalSession.url };
-  }
-);
-
-
-// ===================================================================================
-// --- ADMIN-ONLY CALLABLE FUNCTIONS ---
-// ===================================================================================
-
-export const createCoupon = functions.https.onCall(
-  // ✅ FIXED: Using the single 'request' object signature.
-  async (request) => {
-    const data = request.data as { couponId: string, percentOff: number, duration: 'once' | 'repeating' | 'forever', durationInMonths?: number };
-    const auth = request.auth;
-
-    if (auth?.token.admin !== true) {
-      throw new functions.https.HttpsError("permission-denied", "Admin only.");
-    }
-    const { couponId, percentOff, duration, durationInMonths } = data;
-    const coupon = await stripe.coupons.create({
-      id: couponId,
-      percent_off: percentOff,
-      duration: duration,
-      duration_in_months: duration === "repeating" ? durationInMonths : undefined,
-    });
-    return { success: true, couponId: coupon.id };
-});
-
-export const grantAdminRole = functions.https.onCall(
-  // ✅ FIXED: Using the single 'request' object signature.
-  async (request) => {
+export const grantAdminRole = functions.https.onCall(async (request) => {
     const data = request.data as { email: string };
     const auth = request.auth;
 
-    if (auth?.token.email !== adminEmail) {
-      throw new functions.https.HttpsError("permission-denied", "Unauthorized.");
+    if (!adminEmail) {
+        throw new functions.https.HttpsError("internal", "The admin email is not configured on the backend. Deployment is misconfigured.");
     }
-    const user = await admin.auth().getUserByEmail(data.email);
-    await admin.auth().setCustomUserClaims(user.uid, { admin: true });
-    return { message: `Success! ${data.email} is now an admin.` };
+    if (!auth?.token.email) {
+      throw new functions.https.HttpsError("unauthenticated", "You must be logged in to perform this action.");
+    }
+    if (auth.token.email !== adminEmail) {
+      throw new functions.https.HttpsError("permission-denied", "This action is restricted to the application owner.");
+    }
+    if (data.email !== adminEmail) {
+        throw new functions.https.HttpsError("invalid-argument", "The admin role can only be granted to the application owner.");
+    }
+
+    try {
+        const user = await admin.auth().getUserByEmail(data.email);
+        await admin.auth().setCustomUserClaims(user.uid, { admin: true });
+        return { message: `Success! The admin role has been set for ${data.email}.` };
+    } catch (error: unknown) {
+        logger.error("Error in grantAdminRole:", error);
+        if (typeof error === 'object' && error !== null && 'code' in error && (error as {code: unknown}).code === 'auth/user-not-found') {
+            throw new functions.https.HttpsError("not-found", `User with email ${data.email} was not found.`);
+        }
+        throw new functions.https.HttpsError("internal", "An unexpected error occurred.");
+    }
+});
+
+export const createCoupon = functions.https.onCall(async (request) => {
+    const data = request.data as {
+        code: string;
+        discountType: 'percentage' | 'fixed';
+        discountValue: number;
+        expiresAt?: string;
+        maxUses?: number;
+    };
+    const auth = request.auth;
+
+    if (auth?.token.admin !== true) {
+        throw new functions.https.HttpsError("permission-denied", "You must be an admin to create coupons.");
+    }
+
+    if (!data.code || typeof data.code !== 'string' || data.code.length < 3) {
+        throw new functions.https.HttpsError("invalid-argument", "Coupon code must be a string of at least 3 characters.");
+    }
+    if (data.discountType !== 'percentage' && data.discountType !== 'fixed') {
+        throw new functions.https.HttpsError("invalid-argument", "Discount type must be 'percentage' or 'fixed'.");
+    }
+    if (typeof data.discountValue !== 'number' || data.discountValue <= 0) {
+        throw new functions.https.HttpsError("invalid-argument", "Discount value must be a positive number.");
+    }
+    if (data.discountType === 'percentage' && data.discountValue > 100) {
+        throw new functions.https.HttpsError("invalid-argument", "Percentage discount cannot exceed 100.");
+    }
+
+    const couponRef = db.collection("coupons").doc(data.code.toUpperCase());
+    const couponDoc = await couponRef.get();
+    if (couponDoc.exists) {
+        throw new functions.https.HttpsError("already-exists", `Coupon code '${data.code.toUpperCase()}' already exists.`);
+    }
+
+    const newCouponData = {
+        discountType: data.discountType,
+        discountValue: data.discountValue,
+        expiresAt: data.expiresAt ? admin.firestore.Timestamp.fromDate(new Date(data.expiresAt)) : null,
+        maxUses: data.maxUses || 0,
+        uses: 0,
+        status: 'active',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await couponRef.set(newCouponData);
+    logger.info(`Admin ${auth.uid} created coupon: ${data.code.toUpperCase()}`);
+    return { success: true, message: `Coupon '${data.code.toUpperCase()}' created successfully.` };
 });
 
 // ===================================================================================
-// --- STRIPE WEBHOOK HANDLER --- (This is an onRequest handler, so it remains unchanged)
+// --- AUTHENTICATED USER FUNCTIONS ---
 // ===================================================================================
-export const stripeWebhook = functions.https.onRequest(async (req, res) => {
-    const signature = req.headers["stripe-signature"] as string;
-    const endpointSecret = functions.config().stripe.webhook_secret;
-    let event: Stripe.Event;
+
+export const validateCoupon = functions.https.onCall(async (request) => {
+    const data = request.data as { code: string };
+    const auth = request.auth;
+
+    if (!auth?.uid) {
+        throw new functions.https.HttpsError("unauthenticated", "You must be logged in to validate a coupon.");
+    }
+    if (!data.code) {
+        throw new functions.https.HttpsError("invalid-argument", "Coupon code is required.");
+    }
+
+    const couponRef = db.collection("coupons").doc(data.code.toUpperCase());
+    const couponDoc = await couponRef.get();
+
+    if (!couponDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "This coupon code is not valid.");
+    }
+
+    const coupon = couponDoc.data()!;
+    if (coupon.status !== 'active') {
+        throw new functions.https.HttpsError("failed-precondition", "This coupon is no longer active.");
+    }
+    if (coupon.expiresAt && coupon.expiresAt.toDate() < new Date()) {
+        await couponRef.update({ status: 'expired' });
+        throw new functions.https.HttpsError("failed-precondition", "This coupon has expired.");
+    }
+    if (coupon.maxUses > 0 && coupon.uses >= coupon.maxUses) {
+        throw new functions.https.HttpsError("resource-exhausted", "This coupon has reached its maximum number of uses.");
+    }
+
+    const redemptionRef = couponRef.collection("redemptions").doc(auth.uid);
+    const redemptionDoc = await redemptionRef.get();
+    if (redemptionDoc.exists) {
+        throw new functions.https.HttpsError("already-exists", "You have already used this coupon code.");
+    }
+
+    return {
+        valid: true,
+        code: couponDoc.id,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+    };
+});
+
+export const redeemCoupon = functions.https.onCall(async (request) => {
+    const data = request.data as { code: string };
+    const auth = request.auth;
+
+    if (!auth?.uid) {
+        throw new functions.https.HttpsError("unauthenticated", "You must be logged in to redeem a coupon.");
+    }
+    if (!data.code) {
+        throw new functions.https.HttpsError("invalid-argument", "Coupon code is required.");
+    }
+
+    const couponRef = db.collection("coupons").doc(data.code.toUpperCase());
+    const redemptionRef = couponRef.collection("redemptions").doc(auth.uid);
 
     try {
-        event = stripe.webhooks.constructEvent(req.rawBody, signature, endpointSecret);
-    } catch (err) {
-        console.error("Webhook signature verification failed.", err);
-        res.status(400).send(`Webhook Error: ${(err as Error).message}`);
-        return;
-    }
+        await db.runTransaction(async (transaction) => {
+            const couponDoc = await transaction.get(couponRef);
 
-    const session = event.data.object as Stripe.Checkout.Session;
-    const userId = session.metadata?.userId;
-    const customerId = session.customer as string;
+            if (!couponDoc.exists) throw new Error("NOT_FOUND");
+            const coupon = couponDoc.data()!;
+            if (coupon.status !== 'active') throw new Error("INACTIVE");
+            if (coupon.expiresAt && coupon.expiresAt.toDate() < new Date()) throw new Error("EXPIRED");
+            if (coupon.maxUses > 0 && coupon.uses >= coupon.maxUses) throw new Error("MAX_USES");
+            
+            const redemptionDoc = await transaction.get(redemptionRef);
+            if (redemptionDoc.exists) throw new Error("ALREADY_USED");
 
-    if (!userId) {
-        res.status(400).send("Webhook Error: Missing userId in metadata.");
-        return;
-    }
+            transaction.update(couponRef, { uses: admin.firestore.FieldValue.increment(1) });
+            transaction.set(redemptionRef, { redeemedAt: admin.firestore.FieldValue.serverTimestamp() });
+        });
 
-    if (event.type === "checkout.session.completed") {
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-        const priceId = subscription.items.data[0].price.id;
-
-        const proPriceIds = ["YOUR_PRO_MONTHLY_ID", "YOUR_PRO_YEARLY_ID"];
-        const businessPriceIds = ["YOUR_BUSINESS_MONTHLY_ID", "YOUR_BUSINESS_YEARLY_ID"];
-
-        let stripeRole = "free";
-        if (proPriceIds.includes(priceId)) stripeRole = "pro";
-        if (businessPriceIds.includes(priceId)) stripeRole = "business";
-
-        await admin.auth().setCustomUserClaims(userId, { stripeRole });
-        await db.collection("users").doc(userId).set({
-            stripeRole,
-            stripeCustomerId: customerId,
-            subscriptionId: subscription.id,
-        }, { merge: true });
-    }
-
-    if (event.type === "customer.subscription.deleted" || event.type === "customer.subscription.updated") {
-        const subscription = event.data.object as Stripe.Subscription;
-        if (subscription.status === 'canceled' || subscription.status === 'unpaid' || subscription.cancel_at_period_end) {
-            await admin.auth().setCustomUserClaims(userId, { stripeRole: "free" });
-            await db.collection("users").doc(userId).set({ stripeRole: "free" }, { merge: true });
+        logger.info(`User ${auth.uid} successfully redeemed coupon: ${data.code.toUpperCase()}`);
+        return { success: true, message: "Coupon redeemed successfully." };
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            logger.error(`Failed redemption for user ${auth.uid} coupon ${data.code.toUpperCase()}:`, error.message);
+            if (error.message === "NOT_FOUND") throw new functions.https.HttpsError("not-found", "This coupon code is not valid.");
+            if (error.message === "INACTIVE") throw new functions.https.HttpsError("failed-precondition", "This coupon is no longer active.");
+            if (error.message === "EXPIRED") throw new functions.https.HttpsError("failed-precondition", "This coupon has expired.");
+            if (error.message === "MAX_USES") throw new functions.https.HttpsError("resource-exhausted", "This coupon has reached its maximum number of uses.");
+            if (error.message === "ALREADY_USED") throw new functions.https.HttpsError("already-exists", "You have already used this coupon code.");
+        } else {
+            logger.error(`An unknown error occurred during redemption for user ${auth.uid} coupon ${data.code.toUpperCase()}:`, error);
         }
+        
+        throw new functions.https.HttpsError("internal", "Could not redeem coupon. Please try again.");
     }
-    res.status(200).send({ received: true });
 });

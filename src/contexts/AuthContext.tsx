@@ -1,8 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/firebase';
 
-// This is the shape of our user object throughout the app
 export interface AuthUser extends User {
   stripeRole?: 'free' | 'pro' | 'business';
   admin?: boolean;
@@ -11,45 +10,65 @@ export interface AuthUser extends User {
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  // This is our new "magic" function for the simulation
+  // ✅ ADDED: A function to manually refresh the user state
+  refreshUser: () => Promise<void>;
   simulateUserUpgrade: (role: 'pro' | 'business') => void;
 }
 
-// We add a default empty function to the context definition
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true, simulateUserUpgrade: () => {} });
+const AuthContext = createContext<AuthContextType>({ user: null, loading: true, refreshUser: async () => {}, simulateUserUpgrade: () => {} });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ REFACTORED: Put the state update logic into a reusable function
+  const updateUserState = useCallback(async (firebaseUser: User | null) => {
+    if (firebaseUser) {
+      // Force a refresh of the ID token to get the latest claims (like 'admin')
+      const tokenResult = await firebaseUser.getIdTokenResult(true); 
+      
+      const stripeRole = (tokenResult.claims.stripeRole as 'free' | 'pro' | 'business') || 'free';
+      const admin = (tokenResult.claims.admin as boolean) || false;
+      
+      // We create a new object to avoid direct mutation of the internal firebaseUser
+      const userWithDetails: AuthUser = {
+        ...firebaseUser,
+        // We have to manually copy properties because the spread doesn't get them all
+        displayName: firebaseUser.displayName,
+        email: firebaseUser.email,
+        uid: firebaseUser.uid,
+        photoURL: firebaseUser.photoURL,
+        // Our custom properties
+        stripeRole,
+        admin,
+      };
+      setUser(userWithDetails);
+    } else {
+      setUser(null);
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const tokenResult = await firebaseUser.getIdTokenResult(true);
-        
-        const stripeRole = (tokenResult.claims.stripeRole as 'free' | 'pro' | 'business') || 'free';
-        const admin = (tokenResult.claims.admin as boolean) || false;
-        
-        setUser({ ...firebaseUser, stripeRole, admin });
-      } else {
-        setUser(null);
-      }
+      await updateUserState(firebaseUser);
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [updateUserState]);
+  
+  // ✅ ADDED: The implementation of our new refresh function
+  const refreshUser = useCallback(async () => {
+    await updateUserState(auth.currentUser);
+  }, [updateUserState]);
 
-  // This function allows any component to "pretend" the user has upgraded.
-  // It only changes the state on the frontend for the current session.
   const simulateUserUpgrade = (role: 'pro' | 'business') => {
     setUser(currentUser => {
         if (!currentUser) return null;
-        // Return a new user object with the upgraded role
         return { ...currentUser, stripeRole: role };
     });
   };
 
-  const value = useMemo(() => ({ user, loading, simulateUserUpgrade }), [user, loading]);
+  const value = useMemo(() => ({ user, loading, refreshUser, simulateUserUpgrade }), [user, loading, refreshUser]);
 
   return (
     <AuthContext.Provider value={value}>
