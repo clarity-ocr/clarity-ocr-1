@@ -2,23 +2,6 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { HistoryItem } from '../types/task';
 
-// Helper to safely convert an image to Base64, with a fallback
-const getImageBase64 = async (url: string): Promise<string | null> => {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        const blob = await response.blob();
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-        });
-    } catch (error) {
-        console.error("Error fetching image for PDF:", error);
-        return null;
-    }
-};
-
 // Helper to trigger a file download
 const triggerDownload = (blob: Blob, fileName: string) => {
     const url = URL.createObjectURL(blob);
@@ -35,7 +18,7 @@ export const exportToPDF = async (data: HistoryItem): Promise<void> => {
     try {
         const doc = new jsPDF();
         const title = data.title || 'Untitled Checklist';
-        const logoBase64 = await getImageBase64('/icon.png'); // Assumes icon.png is in /public
+       // Assumes icon.png is in /public
 
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -44,9 +27,6 @@ export const exportToPDF = async (data: HistoryItem): Promise<void> => {
         doc.setFontSize(40);
         doc.setTextColor(240, 240, 240);
         doc.text("Clarity OCR", pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
-        if (logoBase64) {
-            doc.addImage(logoBase64, 'PNG', (pageWidth / 2) - 15, (pageHeight / 2) - 45, 30, 30, undefined, 'FAST');
-        }
         doc.setTextColor(0, 0, 0);
 
         doc.setFontSize(18);

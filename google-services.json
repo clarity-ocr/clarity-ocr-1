@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1017239679262",
+    "project_id": "clarity-ocr",
+    "storage_bucket": "clarity-ocr.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1017239679262:android:f92adc21803648029f990f",
+        "android_client_info": {
+          "package_name": "com.jscorp.clarityocr"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1017239679262-fnpg5rfrlqtaunafi0r8med47e2vrejn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBE6GtXJyaOHasX45HQhfzpx_qrjzvvjUk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1017239679262-fnpg5rfrlqtaunafi0r8med47e2vrejn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
