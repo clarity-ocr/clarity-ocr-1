@@ -14,6 +14,7 @@ interface HistoryItem {
   id: string;
   fileName?: string;
   createdAt?: string;
+  lastViewedAt?: string; // Added for Last Seen Date
   analysisResult?: {
     totalTasks?: number;
     groups?: Array<any>;
@@ -139,12 +140,16 @@ function HistoryPage() {
     }
   };
 
-  const renderDate = (createdAt?: string) => {
+  const renderDate = (dateString?: string) => {
+    if (!dateString) return 'Date unknown';
     try {
-        if (!createdAt) return 'Date unknown';
-        return formatDistanceToNow(new Date(createdAt), { addSuffix: true });
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid date format';
+      }
+      return formatDistanceToNow(date, { addSuffix: true });
     } catch {
-        return 'Invalid date';
+      return 'Invalid date';
     }
   };
   
@@ -218,10 +223,16 @@ function HistoryPage() {
                                       <FileText className="w-5 h-5 flex-shrink-0 text-sky-500" />
                                       <span className="truncate break-all">{item.fileName || 'Untitled Analysis'}</span>
                                   </CardTitle>
-                                  <CardDescription className="flex items-center gap-2 mt-2 text-slate-500 dark:text-slate-400">
-                                      <Calendar className="w-4 h-4" />
-                                      {renderDate(item.createdAt)}
-                                  </CardDescription>
+                                  <div className="flex flex-col gap-2 mt-2 text-sm text-slate-500 dark:text-slate-400">
+                                      <div className="flex items-center gap-2">
+                                          <Calendar className="w-4 h-4" />
+                                          <span>Created: {renderDate(item.createdAt)}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                          <Calendar className="w-4 h-4" />
+                                          <span>Last Seen: {renderDate(item.lastViewedAt)}</span>
+                                      </div>
+                                  </div>
                                   <div className="flex items-center gap-2 mt-4 flex-wrap">
                                       <Badge variant="secondary" className="bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">{item.analysisResult?.totalTasks ?? 0} tasks</Badge>
                                       <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300">{item.analysisResult?.groups?.length ?? 0} categories</Badge>

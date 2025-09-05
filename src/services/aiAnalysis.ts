@@ -1,6 +1,6 @@
-// src/services/aiAnalysis.ts
 import axios from 'axios';
 import { AnalysisResult, TaskGroup, TaskItem } from '@/types/task';
+import { v4 as uuidv4 } from 'uuid';
 
 // --- Configuration (Loaded from Environment Variables) ---
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || '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';
@@ -18,7 +18,6 @@ const AI_CONFIG = {
   MIN_TASKS_IF_EMPTY: 1,
   FALLBACK_TASK_CONTENT: "Document analysis complete. Review the summary and consider creating tasks manually if needed.",
   FALLBACK_TASK_PRIORITY: "medium" as const,
-  FALLBACK_TASK_STATUS: "todo" as const,
   ALWAYS_GENERATE_SUMMARY: true,
 
   GROQ_MODEL: import.meta.env.VITE_GROQ_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct',
@@ -236,8 +235,6 @@ const performAIAnalysis = async (prompt: AIPrompt, retries: number = AI_CONFIG.G
         timeout: AI_CONFIG.GROQ_TIMEOUT_MS,
       });
 
-      // --- STRONGER VALIDATION ---
-      // Check if response structure is valid and content is present
       if (response.data &&
           Array.isArray(response.data.choices) &&
           response.data.choices.length > 0 &&
@@ -251,7 +248,6 @@ const performAIAnalysis = async (prompt: AIPrompt, retries: number = AI_CONFIG.G
           usage: response.data.usage,
         };
       } else {
-        // Log the problematic response for debugging
         console.warn("[AI Analysis] Received unexpected or empty response structure from Groq API:", JSON.stringify(response.data, null, 2));
         throw new Error('Invalid or empty response structure from Groq API');
       }
@@ -290,128 +286,34 @@ const performAIAnalysis = async (prompt: AIPrompt, retries: number = AI_CONFIG.G
 };
 
 const createTaskExtractionPrompt = (documentType: string, content: string, isFirstChunk: boolean): AIPrompt => {
-  // --- IMPROVED PROMPT INSTRUCTIONS ---
   const baseSystemPrompt = `
-You are an expert AI tasked with extracting ANY form of actionable item, point of interest, or key takeaway from a document. The user needs *something* to work with.
-
-CRITICAL INSTRUCTIONS FOR TASK EXTRACTION:
-1. **Broad Definition of "Item":** Anything that could be an action item, a question, a goal, a requirement, a decision point, a follow-up, a reminder, a significant piece of information, or a summary point counts.
-2. **Be Proactive:** If the document seems informational, extract key facts or summaries as potential items. If it's a conversation, extract implied actions or questions.
-3. **Prioritize Completeness:** It's better to extract a slightly vague item than to miss a potential action or key point.
-4. **Specificity is Preferred:** If you can make an item more specific or actionable, do so.
-5. **Return ONLY valid JSON:** NO markdown code blocks, NO explanations, NO extra text outside the JSON.
-6. **Exact JSON Structure (Adhere Strictly):**
+You are an expert AI tasked with extracting actionable items, key points, or takeaways.
+CRITICAL INSTRUCTIONS:
+1. Return ONLY valid JSON. NO markdown code blocks, NO explanations, NO extra text.
+2. Exact JSON Structure (Adhere Strictly):
 {
   "tasks": [
     {
-      "content": "Clear and concise description of the task/action/item/takeaway",
+      "content": "Clear and concise description of the task or key point.",
       "priority": "critical|high|medium|low|none",
-      "status": "todo|in-progress|review|done|cancelled|on-hold|backlog",
       "estimatedTime": 15,
-      "deadline": "optional string (e.g., YYYY-MM-DD, 'end of week', 'TBD')",
-      "assignee": "optional string (e.g., person, team, 'TBD')",
-      "tags": ["context", "document-type"],
-      "dependencies": [],
-      "subtasks": [
-        {
-          "content": "Subtask description",
-          "priority": "high|medium|low",
-          "status": "todo|in-progress|review|done|cancelled|on-hold|backlog",
-          "estimatedTime": 10,
-          "tags": ["subtask-tag"]
-        }
-      ]
+      "deadline": "optional string (e.g., YYYY-MM-DD)"
     }
   ]
 }
-7. **IF ABSOLUTELY NO ITEMS can be extracted OR the document is empty, return this EXACT JSON:** {"tasks": []}
-8. DO NOT wrap the JSON in backticks or markdown.
-9. DO NOT add any text before or after the JSON object.
+3. IF NO ITEMS can be extracted, return: {"tasks": []}
 `;
 
   let documentSpecificInstructions = "\nDOCUMENT TYPE CONTEXT:\n";
   switch (documentType) {
     case 'meeting_minutes':
-      documentSpecificInstructions += `
-- Extract explicit "Action Items" assigned to individuals.
-- Identify decisions made that require follow-up.
-- Capture questions raised that need answering.
-- Summarize key discussion points as informational tasks if no explicit actions.
-- Look for deadlines or due dates associated with actions.
-`;
+      documentSpecificInstructions += `- Extract explicit "Action Items".\n- Identify decisions that require follow-up.\n- Capture questions that need answering.`;
       break;
     case 'project_plan':
-      documentSpecificInstructions += `
-- Extract milestones, deliverables, and major phases.
-- Identify resource assignments and timelines.
-- Capture dependencies between tasks.
-- Note risks or assumptions listed.
-- Extract budget or scope-related items.
-`;
-      break;
-    case 'email':
-      documentSpecificInstructions += `
-- Extract direct requests made by the sender.
-- Identify questions posed that need responses.
-- Capture commitments or promises made.
-- Note deadlines or due dates mentioned.
-- Summarize the email's main purpose/request if no specific action item is clear.
-- Look for CC'd individuals who might be involved.
-`;
-      break;
-    case 'contract':
-      documentSpecificInstructions += `
-- Extract key obligations or responsibilities for each party.
-- Note important dates (e.g., start date, end date, review dates).
-- Capture payment terms or conditions.
-- Identify clauses requiring action or compliance.
-- Extract penalties or consequences mentioned.
-`;
-      break;
-    case 'invoice':
-      documentSpecificInstructions += `
-- Extract payment due date and amount.
-- Note payment method or instructions.
-- Capture any terms or conditions related to the invoice.
-- Identify the payee and payer.
-- Note any late fees or discounts.
-`;
-      break;
-    case 'resume':
-      documentSpecificInstructions += `
-- Extract key skills, experiences, or qualifications mentioned.
-- Note contact information.
-- Identify the candidate's objective or summary (as an informational item).
-- Extract relevant work history or education details.
-`;
-      break;
-    case 'research_paper':
-      documentSpecificInstructions += `
-- Extract research questions or hypotheses.
-- Note key findings or conclusions.
-- Capture methodology steps (if relevant as tasks).
-- Identify future work or recommendations.
-- Extract data sources or references mentioned.
-`;
-      break;
-    case 'manual':
-      documentSpecificInstructions += `
-- Extract setup steps or procedures.
-- Note safety warnings or important guidelines.
-- Capture troubleshooting steps.
-- Identify sections that require user action.
-- Extract configuration options or parameters.
-`;
+      documentSpecificInstructions += `- Extract milestones, deliverables, and major phases.\n- Note key deadlines.`;
       break;
     default:
-      documentSpecificInstructions += `
-- Extract any explicit action items.
-- Identify goals or objectives stated.
-- Capture questions, requirements, or decisions.
-- Summarize key points or takeaways as informational tasks if no clear actions.
-- Look for action verbs (e.g., review, submit, contact, implement, analyze).
-- If the document is purely informational, extract the main points or a summary as a task.
-`;
+      documentSpecificInstructions += `- Extract any explicit action items.\n- Identify goals or objectives.\n- Capture questions or requirements.`;
   }
 
   const chunkInstruction = isFirstChunk
@@ -420,12 +322,7 @@ CRITICAL INSTRUCTIONS FOR TASK EXTRACTION:
 
   return {
     system: `${baseSystemPrompt}${documentSpecificInstructions}`,
-    user: `${chunkInstruction}
-Document content:
----
-${content}
----
-Extract tasks/questions/points as instructed. Return valid JSON only:`,
+    user: `${chunkInstruction}\nDocument content:\n---\n${content}\n---\nExtract items as instructed. Return valid JSON only:`,
   };
 };
 
@@ -433,53 +330,38 @@ const createCategorizationPrompt = (tasksForCategorization: string): AIPrompt =>
   return {
     system: `You are a task categorization expert. Group tasks into logical categories.
 CRITICAL INSTRUCTIONS:
-1. Create 2-6 distinct and meaningful categories based on the tasks' content.
-2. Return ONLY valid JSON - NO markdown, NO explanations
+1. Create 2-6 distinct categories.
+2. Return ONLY valid JSON - NO markdown, NO explanations.
 3. Use this EXACT structure:
 {
   "categories": [
     {
       "id": "unique-category-id",
       "name": "Category Name",
-      "description": "Brief description of the category's focus",
       "taskIds": ["task-1", "task-2"]
     }
   ]
 }
-4. Assign EVERY task to exactly one category. If a task is ambiguous, place it in the most relevant category or create a "General" category.
-5. Ensure task IDs in 'taskIds' match the IDs provided in the task list.
-6. IF categorization is impossible or no tasks exist, return: {"categories": []}
-7. DO NOT wrap in markdown code blocks`,
-    user: `Categorize these tasks:
----
-${tasksForCategorization}
----
-Return JSON only:`,
+4. Assign EVERY task to exactly one category.
+5. IF categorization is impossible, return: {"categories": []}`,
+    user: `Categorize these tasks:\n---\n${tasksForCategorization}\n---\nReturn JSON only:`,
   };
 };
 
 const createSummaryPrompt = (tasksForSummary: string): AIPrompt => {
   return {
-    system: `You are a project management expert. Create a concise summary of the tasks and document content.
+    system: `You are a project management expert. Create a concise summary.
 CRITICAL INSTRUCTIONS:
-1. Return ONLY valid JSON - NO markdown, NO explanations
+1. Return ONLY valid JSON - NO markdown, NO explanations.
 2. Use this EXACT structure:
 {
-  "projectDescription": "A 1-2 sentence summary of the main topic or goal of the document/tasks.",
-  "milestones": ["Key milestone or major task", "Another significant point"],
-  "resources": ["Resource mentioned or needed", "Team involved"],
-  "risks": ["Potential issue or dependency noted", "Uncertainty"],
-  "recommendations": ["Suggestion for next steps", "Item to consider"]
+  "projectDescription": "A 1-2 sentence summary of the main goal.",
+  "milestones": ["Key milestone or major task"],
+  "resources": ["Resource mentioned or needed"]
 }
 3. If information for a field is not available, provide an empty array [].
-4. Base the summary primarily on the tasks provided, but you can infer from their content.
-5. IF no meaningful summary can be generated, return: {"projectDescription": "No summary available.", "milestones": [], "resources": [], "risks": [], "recommendations": []}
-6. DO NOT wrap in markdown code blocks`,
-    user: `Summarize these tasks and infer from their content:
----
-${tasksForSummary}
----
-Return JSON only:`,
+4. IF no summary can be generated, return: {"projectDescription": "No summary available.", "milestones": [], "resources": []}`,
+    user: `Summarize these tasks:\n---\n${tasksForSummary}\n---\nReturn JSON only:`,
   };
 };
 
@@ -488,67 +370,37 @@ const deduplicateTasks = (tasks: any[]): any[] => {
   const seenContents = new Set<string>();
 
   for (const task of tasks) {
-    const normalizedContent = task.content
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const existingTaskIndex = uniqueTasks.findIndex(t =>
-      t.content.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim() === normalizedContent
-    );
-
-    if (existingTaskIndex === -1) {
+    const normalizedContent = task.content.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+    if (!seenContents.has(normalizedContent)) {
       seenContents.add(normalizedContent);
       uniqueTasks.push(task);
-    } else {
-      const existingTask = uniqueTasks[existingTaskIndex];
-      const mergedTags = [...new Set([...(existingTask.tags || []), ...(task.tags || [])])];
-      const mergedDependencies = [...new Set([...(existingTask.dependencies || []), ...(task.dependencies || [])])];
-      let mergedPriority = existingTask.priority;
-      if (task.priority === 'critical' || (task.priority === 'high' && existingTask.priority !== 'critical') ||
-          (task.priority === 'medium' && ['low', 'none'].includes(existingTask.priority))) {
-        mergedPriority = task.priority;
-      }
-      const mergedTime = Math.max(existingTask.estimatedTime || 0, task.estimatedTime || 0);
-      const mergedSubtasks = [...(existingTask.subtasks || []), ...(task.subtasks || [])];
-
-      uniqueTasks[existingTaskIndex] = {
-        ...existingTask,
-        ...task,
-        tags: mergedTags,
-        dependencies: mergedDependencies,
-        priority: mergedPriority,
-        estimatedTime: mergedTime,
-        subtasks: mergedSubtasks
-      };
     }
   }
   return uniqueTasks;
 };
 
-function createFallbackAnalysisResult(fileName: string, reason: string, startTime: number, errorMessage?: string): AnalysisResult {
-     const processingTime = Date.now() - startTime;
+function createFallbackAnalysisResult(reason: string): AnalysisResult {
+     const now = new Date().toISOString();
+     const analysisId = uuidv4();
      return {
+        analysisId: analysisId,
         totalTasks: 1,
         groups: [
           {
             id: 'analysis-outcome',
             name: 'Analysis Outcome',
-            description: reason,
+            expanded: true,
             tasks: [
                 {
                     id: 'fallback-task-1',
                     content: AI_CONFIG.FALLBACK_TASK_CONTENT,
                     priority: AI_CONFIG.FALLBACK_TASK_PRIORITY,
-                    status: AI_CONFIG.FALLBACK_TASK_STATUS,
                     estimatedTime: 0,
-                    tags: ['analysis', 'fallback'],
-                    dependencies: [],
-                    subtasks: [],
                     completed: false,
-                    createdAt: new Date().toISOString(),
-                    chunkId: -1
+                    createdAt: now,
+                    updatedAt: now,
+                    deadline: null,
+                    groupId: 'analysis-outcome'
                 }
             ],
           }
@@ -557,23 +409,12 @@ function createFallbackAnalysisResult(fileName: string, reason: string, startTim
           projectDescription: reason,
           milestones: [],
           resources: [],
-          risks: [],
-          recommendations: [errorMessage ? `Error details: ${errorMessage.substring(0, 100)}...` : "Please check the document or try again."],
         },
-        fileName: fileName,
-        processedAt: new Date().toISOString(),
-        processingStats: {
-          tokensUsed: 0,
-          processingTime: processingTime,
-        },
-        analysisOutcome: errorMessage ? 'failure' : 'no_tasks_found',
-        outcomeMessage: reason
       };
 }
 
-export const analyzeDocument = async (content: string, fileName?: string): Promise<AnalysisResult> => {
-  const startTime = Date.now();
-  console.log(`[AI Analysis] Starting analysis for file: ${fileName || 'Pasted Text'}`);
+export const analyzeDocument = async (content: string): Promise<AnalysisResult> => {
+  console.log(`[AI Analysis] Starting analysis...`);
   console.log(`[AI Analysis] Raw content length: ${content.length} characters`);
 
   try {
@@ -583,7 +424,7 @@ export const analyzeDocument = async (content: string, fileName?: string): Promi
 
     if (!processedContent || processedContent.trim().length < 10) {
       console.warn("[AI Analysis] Content is empty or too short for meaningful analysis.");
-      return createFallbackAnalysisResult(fileName || 'Untitled Document', "No readable content found in the document.", startTime);
+      return createFallbackAnalysisResult("No readable content found in the document.");
     }
 
     const contentChunks = chunkContent(processedContent, AI_CONFIG.CHUNK_SIZE);
@@ -596,8 +437,7 @@ export const analyzeDocument = async (content: string, fileName?: string): Promi
       console.log(`[AI Analysis] Processing chunk ${i + 1}/${contentChunks.length} (${chunk.length} characters)`);
       const taskExtractionPrompt = createTaskExtractionPrompt(documentType, chunk, i === 0);
       console.log('[AI Analysis] Sending task extraction request...');
-
-      // --- WRAP AI CALL IN TRY/CATCH TO ENSURE FALLBACK ---
+      
       let taskData: any = null;
       try {
           const taskResponse = await performAIAnalysis(taskExtractionPrompt, AI_CONFIG.GROQ_MAX_RETRIES, AI_CONFIG.GROQ_TEMPERATURE_TASKS);
@@ -606,22 +446,15 @@ export const analyzeDocument = async (content: string, fileName?: string): Promi
           taskData = safeJSONParse(taskResponse.content, 'task extraction');
       } catch (aiCallError: any) {
           console.error('[AI Analysis] Error during task extraction AI call or parsing for chunk:', aiCallError);
-          // taskData remains null, will be handled below
+          taskData = { tasks: [] };
       }
 
-      // --- ROBUST VALIDATION AND HANDLING ---
-      // Check if taskData is valid and has tasks array
       if (!taskData || !Array.isArray(taskData.tasks)) {
-         console.warn('[AI Analysis] Invalid or missing task data structure received for chunk. Treating as empty list for this chunk.');
-         // Don't throw, just continue with empty tasks for this chunk
-         taskData = { tasks: [] }; // Ensure a valid structure with empty tasks
+         console.warn('[AI Analysis] Invalid or missing task data structure received for chunk. Treating as empty list.');
+         taskData = { tasks: [] };
       }
 
-      const tasksWithChunkId = taskData.tasks.map((task: any) => ({
-        ...task,
-        chunkId: i,
-      }));
-      allTasks = [...allTasks, ...tasksWithChunkId];
+      allTasks = [...allTasks, ...taskData.tasks];
     }
 
     console.log(`[AI Analysis] Extracted ${allTasks.length} raw tasks from all chunks.`);
@@ -632,32 +465,33 @@ export const analyzeDocument = async (content: string, fileName?: string): Promi
     let finalTasks = uniqueTasks;
     let groups: TaskGroup[] = [];
     let summaryData: any = null;
+    const now = new Date().toISOString();
 
-    // --- GUARANTEE OUTPUT: Handle Case Where No Tasks Are Found ---
     if (finalTasks.length < AI_CONFIG.MIN_TASKS_IF_EMPTY) {
-      console.log(`[AI Analysis] Found ${finalTasks.length} tasks, below minimum threshold (${AI_CONFIG.MIN_TASKS_IF_EMPTY}). Generating fallback.`);
+      console.log(`[AI Analysis] Found ${finalTasks.length} tasks, below minimum threshold. Generating fallback.`);
       finalTasks = [{
         id: 'fallback-task-1',
         content: AI_CONFIG.FALLBACK_TASK_CONTENT,
         priority: AI_CONFIG.FALLBACK_TASK_PRIORITY,
-        status: AI_CONFIG.FALLBACK_TASK_STATUS,
         estimatedTime: 0,
-        tags: ['analysis', 'fallback'],
-        dependencies: [],
-        subtasks: [],
         completed: false,
-        createdAt: new Date().toISOString(),
-        chunkId: -1
+        createdAt: now,
+        updatedAt: now,
+        deadline: null,
       }];
     }
 
-    // --- Proceed with Categorization (Always if configured) ---
     try {
-        const tasksForCategorization = finalTasks.map((task: any, index: number) => {
-             const taskId = task.id || `task-${index + 1}`;
-             return `${index + 1}. ${task.content.substring(0, 200)}... (ID: ${taskId})`;
-        }).join('\n');
+        const tasksWithIds = finalTasks.map((task: any, index: number) => ({
+            ...task,
+            id: task.id || `task-${index + 1}`,
+            completed: task.completed ?? false,
+            createdAt: task.createdAt || now,
+            updatedAt: task.updatedAt || now,
+            deadline: task.deadline || null,
+        }));
 
+        const tasksForCategorization = tasksWithIds.map(t => `${t.id}: ${t.content.substring(0, 200)}...`).join('\n');
         const categorizationPrompt = createCategorizationPrompt(tasksForCategorization);
         console.log('[AI Analysis] Sending categorization request...');
         const categoryResponse = await performAIAnalysis(categorizationPrompt, AI_CONFIG.GROQ_MAX_RETRIES, AI_CONFIG.GROQ_TEMPERATURE_CATEGORIZE);
@@ -666,86 +500,41 @@ export const analyzeDocument = async (content: string, fileName?: string): Promi
         const categoryData = safeJSONParse(categoryResponse.content, 'categorization');
 
         if (categoryData && Array.isArray(categoryData.categories) && categoryData.categories.length > 0) {
-            const tasksWithIds = finalTasks.map((task: any, index: number) => ({
-                ...task,
-                id: task.id || `task-${index + 1}`,
-                completed: task.completed ?? false,
-                createdAt: task.createdAt || new Date().toISOString(),
-                subtasks: task.subtasks ? task.subtasks.map((st: any, stIndex: number) => ({
-                    ...st,
-                    id: st.id || `${task.id || `task-${index + 1}`}-subtask-${stIndex + 1}`,
-                    completed: st.completed || false,
-                    createdAt: st.createdAt || new Date().toISOString(),
-                })) : []
-            }));
-
             groups = categoryData.categories.map((cat: any, index: number) => {
-                const validTaskIds = cat.taskIds?.filter((id: string) =>
-                    tasksWithIds.some((t: TaskItem) => t.id === id)
-                ) || [];
+                const groupId = cat.id || `group-${index + 1}`;
                 return {
-                    id: cat.id || `group-${index + 1}`,
+                    id: groupId,
                     name: cat.name,
-                    description: cat.description || '',
-                    tasks: tasksWithIds.filter((task: TaskItem) => validTaskIds.includes(task.id)),
+                    expanded: true,
+                    tasks: tasksWithIds
+                        .filter((task: TaskItem) => (cat.taskIds || []).includes(task.id))
+                        .map((task: TaskItem) => ({ ...task, groupId })),
                 };
             });
+            const assignedTaskIds = new Set(groups.flatMap(g => g.tasks.map(t => t.id)));
+            const unassignedTasks = tasksWithIds
+                .filter((task: TaskItem) => !assignedTaskIds.has(task.id))
+                .map((task: TaskItem) => ({ ...task, groupId: 'unassigned' }));
 
-            const assignedTaskIds = new Set(groups.flatMap(group => group.tasks.map(task => task.id)));
-            const unassignedTasks = tasksWithIds.filter((task: TaskItem) => !assignedTaskIds.has(task.id));
             if (unassignedTasks.length > 0) {
                 groups.push({
                     id: 'unassigned',
                     name: 'Uncategorized Tasks',
-                    description: 'Tasks that could not be categorized by the AI.',
+                    expanded: true,
                     tasks: unassignedTasks,
                 });
-                 console.log(`[AI Analysis] ${unassignedTasks.length} tasks were unassigned.`);
             }
         } else {
-            console.warn('[AI Analysis] Invalid or empty category data. Placing tasks in a default group.');
-             const tasksWithIds = finalTasks.map((task: any, index: number) => ({
-                ...task,
-                id: task.id || `task-${index + 1}`,
-                completed: task.completed ?? false,
-                createdAt: task.createdAt || new Date().toISOString(),
-                subtasks: task.subtasks ? task.subtasks.map((st: any, stIndex: number) => ({
-                    ...st,
-                    id: st.id || `${task.id || `task-${index + 1}`}-subtask-${stIndex + 1}`,
-                    completed: st.completed || false,
-                    createdAt: st.createdAt || new Date().toISOString(),
-                })) : []
-            }));
-            groups = [{
-                id: 'default-group',
-                name: 'Analysis Results',
-                description: 'Tasks extracted or generated by the AI.',
-                tasks: tasksWithIds
-            }];
+            const groupId = 'default-group';
+            groups = [{ id: groupId, name: 'Analysis Results', expanded: true, tasks: tasksWithIds.map((task: TaskItem) => ({ ...task, groupId })) }];
         }
     } catch (catError: any) {
         console.error('[AI Analysis] Error during categorization:', catError);
-         const tasksWithIds = finalTasks.map((task: any, index: number) => ({
-                ...task,
-                id: task.id || `task-${index + 1}`,
-                completed: task.completed ?? false,
-                createdAt: task.createdAt || new Date().toISOString(),
-                subtasks: task.subtasks ? task.subtasks.map((st: any, stIndex: number) => ({
-                    ...st,
-                    id: st.id || `${task.id || `task-${index + 1}`}-subtask-${stIndex + 1}`,
-                    completed: st.completed || false,
-                    createdAt: st.createdAt || new Date().toISOString(),
-                })) : []
-            }));
-            groups = [{
-                id: 'default-group',
-                name: 'Analysis Results',
-                description: 'Tasks extracted or generated by the AI. Categorization failed.',
-                tasks: tasksWithIds
-            }];
+        const groupId = 'default-group';
+        const tasksWithIds = finalTasks.map((task: any, index: number) => ({ ...task, id: task.id || `task-${index + 1}`, groupId }));
+        groups = [{ id: groupId, name: 'Analysis Results', expanded: true, tasks: tasksWithIds }];
     }
 
-    // --- Proceed with Summary (Always if configured) ---
     try {
         const tasksForSummary = finalTasks.map((task: any) => `- ${task.content.substring(0, 150)}...`).join('\n');
         const summaryPrompt = createSummaryPrompt(tasksForSummary);
@@ -754,16 +543,8 @@ export const analyzeDocument = async (content: string, fileName?: string): Promi
         console.log('[AI Analysis] Summary response received.');
         totalTokensUsed += summaryResponse.usage?.total_tokens || 0;
         summaryData = safeJSONParse(summaryResponse.content, 'summary');
-
-         if (!summaryData) {
-             console.warn('[AI Analysis] Summary parsing failed, using empty structure.');
-             summaryData = {
-                projectDescription: "Summary generation failed or was inconclusive.",
-                milestones: [],
-                resources: [],
-                risks: [],
-                recommendations: ["Review the items listed."]
-             };
+        if (!summaryData) {
+            throw new Error("Summary parsing failed.");
         }
     } catch (sumError: any) {
         console.error('[AI Analysis] Error during summary generation:', sumError);
@@ -771,31 +552,21 @@ export const analyzeDocument = async (content: string, fileName?: string): Promi
           projectDescription: "Analysis completed. Review the extracted items.",
           milestones: [],
           resources: [],
-          risks: [],
-          recommendations: ["Review the items listed and create specific tasks if needed."]
         };
     }
 
     console.log('[AI Analysis] Assembling final result...');
-    const processingTime = Date.now() - startTime;
-    console.log(`[AI Analysis] Analysis completed successfully in ${processingTime}ms.`);
+    console.log(`[AI Analysis] Analysis completed successfully.`);
 
     return {
+      analysisId: uuidv4(),
       totalTasks: finalTasks.length,
       groups: groups,
       summary: summaryData,
-      fileName: fileName || 'Untitled Document',
-      processedAt: new Date().toISOString(),
-      processingStats: {
-        tokensUsed: totalTokensUsed,
-        processingTime: processingTime,
-      },
-      analysisOutcome: 'success',
-      outcomeMessage: 'Analysis completed successfully.'
     };
 
   } catch (error: any) {
     console.error('[AI Analysis] Fatal Error:', error);
-    return createFallbackAnalysisResult(fileName || 'Untitled Document', `Analysis failed: ${error.message || 'Unknown error'}`, startTime, error.message || 'Unknown error');
+    return createFallbackAnalysisResult(`Analysis failed: ${error.message || 'Unknown error'}`);
   }
 };
