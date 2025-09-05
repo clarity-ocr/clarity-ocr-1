@@ -27,7 +27,7 @@ import { createOrUpdatePublicShareLink, shareViaWhatsApp, nativeWebShare, revoke
 import {
   Loader2, AlertCircle, ListChecks, Download, CheckCircle, PlusCircle, Trash2,
   Milestone, BookOpen, ChevronDown, Share2, SortAsc, Filter, Clock, Copy, ArrowLeft,
-  MoreHorizontal, Settings, Search, CheckSquare, Sparkles
+  MoreHorizontal, Settings, Search, CheckSquare, Sparkles, FolderPlus
 } from 'lucide-react';
 
 // UI Components
@@ -45,7 +45,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -59,6 +59,12 @@ const card3DVariants: Variants = {
     boxShadow: "0 20px 40px rgba(2,6,23,0.15)",
     transition: { type: 'spring', stiffness: 260, damping: 22 }
   }
+};
+
+const dialogVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: { opacity: 1, scale: 1, transition: { type: 'spring', damping: 20, stiffness: 200 } },
+  exit: { opacity: 0, scale: 0.9, transition: { duration: 0.15 } }
 };
 
 /* ============================= Utilities ============================= */
@@ -161,7 +167,7 @@ const EditableField: React.FC<{
   return (
     <div
       onClick={() => setIsEditing(true)}
-      className={`${className} cursor-pointer p-1 rounded-md hover:bg-violet-500/10 min-h-[24px]`}
+      className={`${className} cursor-pointer p-1 rounded-md hover:bg-violet-500/10 min-h-[24px] break-all`}
       tabIndex={0}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsEditing(true)}
       role="button"
@@ -389,7 +395,7 @@ const Header: React.FC<{
                 </div>
               </div>
 
-              <div className="flex w-full sm:w-auto items-center justify-between sm:justify-end gap-2 self-start sm:self-center">
+              <div className="flex items-center justify-end gap-2 self-start sm:self-center">
                 <div className="flex items-center gap-2">
                   <ShareDialog historyItem={historyItem} onUpdateHistoryItem={updateHistoryItem} />
                   <DropdownMenu>
@@ -520,6 +526,71 @@ const Summary: React.FC<{
   );
 };
 
+const AddGroupDialog: React.FC<{
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  onAddGroup: (name: string) => void;
+}> = ({ isOpen, onOpenChange, onAddGroup }) => {
+  const [name, setName] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) {
+      onAddGroup(name.trim());
+      setName('');
+      onOpenChange(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <AnimatePresence>
+        {isOpen && (
+          <DialogContent className="aurora-card rounded-2xl p-0 overflow-hidden border-0">
+            <motion.div variants={dialogVariants} initial="hidden" animate="visible" exit="exit">
+              <form onSubmit={handleSubmit}>
+                <div className="p-6 space-y-4">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-2xl aurora-gradient-text">
+                      <FolderPlus className="w-6 h-6" />
+                      Create New Group
+                    </DialogTitle>
+                    <DialogDescription className="text-slate-600 dark:text-slate-400">
+                      Enter a name for your new task group below.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-2">
+                    <Label htmlFor="group-name" className="sr-only">
+                      Group Name
+                    </Label>
+                    <Input
+                      id="group-name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g., Project Milestones"
+                      autoFocus
+                      className="text-base h-11 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus-visible:ring-2 focus-visible:ring-cyan-400/80"
+                    />
+                  </div>
+                </div>
+                <DialogFooter className="bg-slate-100/50 dark:bg-black/20 px-6 py-4">
+                  <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="text-slate-700 dark:text-slate-300">
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="aurora-button disabled:opacity-60" disabled={!name.trim()}>
+                    <PlusCircle className="w-4 h-4 mr-2" />
+                    Create Group
+                  </Button>
+                </DialogFooter>
+              </form>
+            </motion.div>
+          </DialogContent>
+        )}
+      </AnimatePresence>
+    </Dialog>
+  );
+};
+
 const TaskList: React.FC<{
   groups: TaskGroup[],
   updateHistoryItem: (updater: (prev: HistoryItem) => HistoryItem) => void,
@@ -529,6 +600,7 @@ const TaskList: React.FC<{
   setSort: (s: SortKey) => void
 }> = ({ groups, updateHistoryItem, filter, setFilter, sort, setSort }) => {
   const [openGroupIds, setOpenGroupIds] = useState<string[]>([]);
+  const [isAddGroupDialogOpen, setIsAddGroupDialogOpen] = useState(false);
 
   useEffect(() => { setOpenGroupIds(groups.map(g => g.id)); }, [groups]);
 
@@ -564,12 +636,13 @@ const TaskList: React.FC<{
     });
   };
 
-  const handleAddGroup = () => {
-    const newGroup: TaskGroup = { id: uuidv4(), name: "New Group", expanded: true, tasks: [] };
+  const handleAddGroup = (name: string) => {
+    const newGroup: TaskGroup = { id: uuidv4(), name, expanded: true, tasks: [] };
     updateHistoryItem(p => {
       if (!p) return p;
-      return { ...p, analysisResult: { ...p.analysisResult, groups: [...p.analysisResult.groups, newGroup] } };
+      return { ...p, analysisResult: { ...p.analysisResult, groups: [newGroup, ...p.analysisResult.groups] } };
     });
+    setOpenGroupIds(ids => [newGroup.id, ...ids]);
   };
 
   const handleDeleteGroup = (groupIdToDelete: string) => {
@@ -620,6 +693,11 @@ const TaskList: React.FC<{
 
   return (
     <div className="space-y-3 sm:space-y-4">
+      <AddGroupDialog
+        isOpen={isAddGroupDialogOpen}
+        onOpenChange={setIsAddGroupDialogOpen}
+        onAddGroup={handleAddGroup}
+      />
       {/* Controls (Desktop) */}
       <div className="hidden sm:flex items-center justify-between gap-4">
         <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
@@ -650,7 +728,7 @@ const TaskList: React.FC<{
             </SelectContent>
           </Select>
 
-          <Button size="sm" onClick={handleAddGroup} aria-label="Add group">
+          <Button size="sm" onClick={() => setIsAddGroupDialogOpen(true)} aria-label="Add group">
             <PlusCircle className="w-4 h-4 mr-2" />
             Add Group
           </Button>
@@ -664,8 +742,8 @@ const TaskList: React.FC<{
             <motion.div key={group.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.25 }}>
               <Card className="aurora-panel rounded-xl mb-2 sm:mb-3 overflow-hidden">
                 <AccordionItem value={group.id} className="border-b-0">
-                  <AccordionTrigger className="text-base sm:text-lg font-semibold hover:no-underline p-3 sm:p-4">
-                    <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center w-full p-3 sm:p-4">
+                    <AccordionTrigger className="flex-grow p-0 text-left hover:no-underline">
                       <div className="flex items-center gap-3 text-left flex-grow min-w-0">
                         <EditableField
                           value={group.name}
@@ -676,18 +754,18 @@ const TaskList: React.FC<{
                               groups: p.analysisResult.groups.map(g => g.id === group.id ? { ...g, name: val } : g)
                             }
                           }))}
-                          className="flex-grow"
+                          className="flex-grow min-w-0 text-base sm:text-lg font-semibold"
                           data-testid={`group-name-${group.id}`}
                         />
                         <Badge variant="secondary" className="flex-shrink-0" aria-label={`${group.tasks.length} tasks`}>
                           {group.tasks.length}
                         </Badge>
                       </div>
-                      <div onClick={(e) => e.stopPropagation()} className="ml-2">
-                        <DeleteGroupConfirmation onConfirm={() => handleDeleteGroup(group.id)} />
-                      </div>
+                    </AccordionTrigger>
+                    <div className="ml-2 flex-shrink-0">
+                      <DeleteGroupConfirmation onConfirm={() => handleDeleteGroup(group.id)} />
                     </div>
-                  </AccordionTrigger>
+                  </div>
 
                   <AccordionContent className="pl-2 border-l-2 ml-3 sm:ml-4 border-violet-200 dark:border-violet-900">
                     <div className="space-y-2 p-2">
@@ -782,7 +860,7 @@ const TaskList: React.FC<{
             </SelectContent>
           </Select>
 
-          <Button variant="outline" className="h-10" onClick={handleAddGroup} aria-label="Add group (mobile)">
+          <Button variant="outline" className="h-10" onClick={() => setIsAddGroupDialogOpen(true)} aria-label="Add group (mobile)">
             <PlusCircle className="w-4 h-4 mr-1" />
             Add
           </Button>
@@ -954,6 +1032,15 @@ const ChecklistPage: React.FC = () => {
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
+        }
+        .aurora-button {
+          background-image: linear-gradient(90deg, var(--aurora-from), var(--aurora-to));
+          color: white;
+          transition: all 0.2s ease-in-out;
+        }
+        .aurora-button:hover {
+          box-shadow: 0 0 15px rgba(79, 70, 229, 0.5);
+          transform: translateY(-1px);
         }
         @supports (padding: max(0px)) {
           .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0.75rem); }
