@@ -1,0 +1,89 @@
+{
+    "name": "Clarity OCR: AI Document Analysis",
+    "short_name": "Clarity OCR",
+    "description": "Intelligently reads your documents, identifies tasks, and creates organized checklists, saving you hours of manual work.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#0D1121",
+    "theme_color": "#0D1121",
+    "orientation": "portrait-primary",
+    "lang": "en-US",
+    "dir": "ltr",
+    "categories": [
+      "productivity",
+      "utilities",
+      "business"
+    ],
+    "icons": [
+      {
+        "src": "icon.png",
+        "type": "image/png",
+        "sizes": "192x192"
+      },
+      {
+        "src": "logo.png",
+        "type": "image/png",
+        "sizes": "512x512"
+      },
+      {
+        "src": "icon-character.png",
+        "type": "image/png",
+        "sizes": "512x512",
+        "purpose": "maskable"
+      },
+      {
+        "src": "logo.png",
+        "type": "image/png",
+        "sizes": "180x180",
+        "purpose": "any"
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Start New Analysis",
+        "short_name": "Analyze",
+        "description": "Upload a document to start a new analysis.",
+        "url": "/#upload-zone",
+        "icons": [
+          {
+            "src": "icon.png",
+            "sizes": "96x96"
+          }
+        ]
+      },
+      {
+        "name": "View Analysis History",
+        "short_name": "History",
+        "description": "Access your past document analyses.",
+        "url": "/history",
+        "icons": [
+          {
+            "src": "icon.png",
+            "sizes": "96x96"
+          }
+        ]
+      }
+    ],
+    "share_target": {
+      "action": "/share-target",
+      "method": "POST",
+      "enctype": "multipart/form-data",
+      "params": {
+        "title": "title",
+        "text": "text",
+        "url": "url",
+        "files": [
+          {
+            "name": "files",
+            "accept": [
+              "application/pdf",
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ]
+          }
+        ]
+      }
+    }
+  }

@@ -1,60 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- =============================================================== -->
+    <!-- CORE METADATA                                                   -->
+    <!-- =============================================================== -->
     <meta charset="UTF-8" />
-    
-    <!-- Make the view responsive and prevent zooming on mobile -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    
-    <!-- Theme Color for Browser UI (crucial for mobile experience) -->
-    <meta name="theme-color" content="#ffffff" />
-
-    <title>Clarity OCR</title>
-    <meta name="description" content="An AI-powered OCR application for instant text extraction from any document." />
+    <title>Clarity OCR | AI Document Analysis</title>
+    <meta name="description" content="Intelligently reads your documents, identifies tasks, and creates organized checklists, saving you hours of manual work." />
     <meta name="author" content="Lovable" />
 
-    <!-- Favicons & App Icons (Using files from your public folder) -->
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon.png" />
-    <link rel="apple-touch-icon" href="/icon.png" />
-
-    <!-- Web App Manifest for PWA features (Add to Home Screen) -->
+    <!-- =============================================================== -->
+    <!-- PWA, FAVICONS, AND MOBILE THEMING                               -->
+    <!-- =============================================================== -->
     <link rel="manifest" href="/manifest.json" />
 
-    <!-- iOS Specific Meta Tags for a native-like experience -->
+    <!-- Dynamic Theme Color for Browser UI (Adapts to Light/Dark Mode) -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F9FAFB" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0D1121" />
+
+    <!-- Advanced SVG Favicon (Adapts to Light/Dark Mode) -->
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    
+    <!-- Fallback Favicon for older browsers -->
+    <link rel="alternate icon" href="/favicon.ico" sizes="any" />
+
+    <!-- iOS "Add to Home Screen" Icon -->
+    <link rel="apple-touch-icon" href="/logo.png" />
+    
+    <!-- iOS PWA Fullscreen Experience -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Clarity OCR" />
 
-    <!-- SEO & Social Sharing (Open Graph for Facebook, LinkedIn, etc.) -->
-    <meta property="og:title" content="Clarity OCR" />
-    <meta property="og:description" content="Instantly extract text from any document with AI-powered OCR." />
+    <!-- 
+      iOS Splash Screens (Startup Images) 
+      ACTION REQUIRED: Create these images for a native-like launch experience.
+      You can use online generators to create the various sizes.
+    -->
+    <!-- iPhone 14 Pro Max -->
+    <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" href="/splash/iphone14_pro_max.png" />
+    <!-- iPhone 14 -->
+    <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" href="/splash/iphone14.png" />
+    <!-- iPad Pro 12.9" -->
+    <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" href="/splash/ipad_pro_12.9.png" />
+
+
+    <!-- =============================================================== -->
+    <!-- SEO & SOCIAL SHARING (OPEN GRAPH / TWITTER CARDS)               -->
+    <!-- =============================================================== -->
+    <!-- ACTION REQUIRED: Replace "https://your-app-url.com" with your production URL -->
+    <link rel="canonical" href="https://your-app-url.com" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph (for Facebook, LinkedIn, etc.) -->
+    <meta property="og:title" content="Clarity OCR: Transform Documents into Action" />
+    <meta property="og:description" content="Intelligently reads your documents, identifies tasks, and creates organized checklists with AI." />
     <meta property="og:type" content="website" />
-    <!-- Best Practice: Use a relative path so it works on any domain -->
-    <meta property="og:image" content="/logo.png" />
-    <meta property="og:url" content="https://your-production-url.com" /> <!-- Replace with your actual URL -->
+    <meta property="og:url" content="https://your-app-url.com" />
+    <meta property="og:image" content="https://your-app-url.com/logoback.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
 
-    <!-- Twitter Card Meta Tags -->
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- ACTION REQUIRED: Replace with your actual Twitter handle -->
     <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:creator" content="@your_twitter_handle" /> <!-- Optional: Add your handle -->
-    <meta name="twitter:title" content="Clarity OCR" />
-    <meta name="twitter:description" content="Instantly extract text from any document with AI-powered OCR." />
-    <!-- Best Practice: Use a relative path -->
-    <meta name="twitter:image" content="/logo.png" />
+    <meta name="twitter:title" content="Clarity OCR: Transform Documents into Action" />
+    <meta name="twitter:description" content="Intelligently reads your documents, identifies tasks, and creates organized checklists with AI." />
+    <meta name="twitter:image" content="https://your-app-url.com/logoback.png" />
 
-    <!-- Performance Hint: Preconnect to external domains if you use any (e.g., Google Fonts, APIs) -->
-    <!-- <link rel="preconnect" href="https://fonts.googleapis.com"> -->
+
+    <!-- =============================================================== -->
+    <!-- PERFORMANCE HINTS                                               -->
+    <!-- =============================================================== -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Preconnect to Firebase if you use it -->
+    <link rel="preconnect" href="https://www.googleapis.com" />
     
+    <!-- Preload the main script module for faster execution -->
+    <link rel="modulepreload" href="/src/main.tsx" />
   </head>
 
   <body>
-    <!-- Root element for your React/Vue/Svelte App -->
-    <div id="root"></div>
+    <!-- Root element for your app -->
+    <div id="root">
+        <!-- 
+          Fallback content for users with JavaScript disabled.
+          This will be replaced by your React app.
+        -->
+        <noscript>
+          <div style="background-color: #0D1121; color: #F9FAFB; font-family: sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem;">
+            <h1 style="font-size: 2rem; margin-bottom: 1rem;">JavaScript is Required</h1>
+            <p style="font-size: 1.2rem; max-width: 600px;">This application is built with modern web technologies and requires JavaScript to function. Please enable JavaScript in your browser settings and refresh the page.</p>
+          </div>
+        </noscript>
+    </div>
 
-    <!-- Fallback content for users with JavaScript disabled -->
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-
+    <!-- The main script for your application -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
