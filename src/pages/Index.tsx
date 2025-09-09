@@ -52,6 +52,7 @@ const FAQ_ITEMS = [ { question: "What file formats do you support?", answer: "We
 
 // --- Contact Form Component ---
 const ContactSection: FC = () => {
+    // ... This component remains unchanged
     const { toast } = useToast();
     const [state, handleSubmit] = useForm("xblapjll"); 
 
@@ -118,6 +119,7 @@ export default function Index() {
   }, [user, navigate]);
 
   const handleAnalyze = useCallback(async (content: string, fileName?: string) => {
+    // ... This function remains unchanged
     if (!user) { toast({ title: "Authentication Required", variant: "destructive" }); return; }
     setIsAnalyzing(true); setProgress(0);
     const progressInterval = setInterval(() => setProgress(p => Math.min(p + 10, 90)), 200);
@@ -144,16 +146,20 @@ export default function Index() {
 
   const containerVariants: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.15 } } };
   const itemVariants: Variants = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } } };
+  const card3DVariants: Variants = {
+      hover: { scale: 1.03, rotateY: 2, transition: { type: 'spring', stiffness: 300, damping: 20 } }
+  };
 
   if (!user) {
     return <div className="flex h-screen w-full items-center justify-center bg-white dark:bg-[#0D1121]"><Loader2 className="h-10 w-10 animate-spin text-slate-500" /></div>;
   }
   
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0D1121] text-slate-800 dark:text-slate-200 font-sans">
+    <div className="min-h-screen bg-white dark:bg-[#0D1121] text-slate-800 dark:text-slate-200 font-sans" style={{ perspective: '2000px' }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap'); .font-sora { font-family: 'Sora', sans-serif; }`}</style>
       
       <nav className="sticky top-0 z-50 bg-white/70 dark:bg-[#0D1121]/70 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80">
+        {/* ... Nav remains unchanged */}
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3 group" onClick={() => scrollToSection('hero')}>
@@ -163,7 +169,6 @@ export default function Index() {
               <h1 className="text-xl font-bold font-sora text-slate-800 dark:text-slate-100 hidden sm:block">Clarity OCR</h1>
             </Link>
 
-            {/* Desktop Menu */}
             <div className="hidden md:flex items-center gap-2">
                 <Button variant="ghost" className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white" onClick={() => scrollToSection('features')}>Features</Button>
                 <Button variant="ghost" className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white" onClick={() => navigate('/history')}>History</Button>
@@ -174,7 +179,6 @@ export default function Index() {
                 </DropdownMenu>
             </div>
 
-            {/* Mobile Menu Button */}
             <div className="md:hidden">
               <button className="p-2 rounded-lg" onClick={toggleMobileMenu} aria-label="Toggle menu">
                 {mobileMenuOpen ? <X /> : <Menu />}
@@ -182,7 +186,6 @@ export default function Index() {
             </div>
           </div>
 
-          {/* Mobile Dropdown Menu */}
           {mobileMenuOpen && (
             <div className="md:hidden mt-4 border-t border-slate-200/80 dark:border-slate-800/80 pt-4">
               <div className="flex flex-col gap-2">
@@ -202,6 +205,7 @@ export default function Index() {
       
       <main>
         <section id="hero" className="relative text-center overflow-hidden pt-24 pb-32">
+          {/* ... Hero Section remains unchanged */}
           <div className="absolute inset-0 -z-10 bg-white dark:bg-[#0D1121]"></div>
           <div className="absolute -top-1/2 left-1/2 -translate-x-1/2 w-[150%] h-[150%] opacity-20 dark:opacity-30 bg-[radial-gradient(circle_at_center,_#06b6d420,_#3b82f640,_#8b5cf660,_transparent_70%)]" aria-hidden="true"></div>
           <div className="container mx-auto px-4">
@@ -225,7 +229,8 @@ export default function Index() {
         </section>
 
         <section id="upload-zone" className="container mx-auto px-4 pb-20 -mt-16">
-          <div className="p-1 bg-gradient-to-br from-sky-400 via-purple-500 to-indigo-600 rounded-2xl max-w-4xl mx-auto shadow-2xl shadow-purple-500/10">
+          {/* ... Upload Zone remains unchanged */}
+           <div className="p-1 bg-gradient-to-br from-sky-400 via-purple-500 to-indigo-600 rounded-2xl max-w-4xl mx-auto shadow-2xl shadow-purple-500/10">
             <div className="p-6 sm:p-8 bg-white/80 dark:bg-[#12172a]/80 backdrop-blur-2xl rounded-[15px]">
               <h2 className="text-3xl font-bold text-center mb-2 font-sora text-slate-800 dark:text-slate-200">Get Started Here</h2>
               <p className="text-center text-slate-500 dark:text-slate-400 mb-8">Upload a file or paste text to begin.</p>
@@ -242,26 +247,31 @@ export default function Index() {
                 </div>
                 <motion.div variants={containerVariants} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {FEATURES_DATA.map((feature) => (
-                        <motion.div variants={itemVariants} key={feature.title}>
-                            <Card className="bg-slate-50 dark:bg-slate-800/30 h-full hover:shadow-2xl hover:shadow-purple-500/10 hover:-translate-y-2 transition-all duration-300 rounded-2xl border border-slate-200 dark:border-slate-800">
-                                <CardHeader>
-                                    <div className="p-3 rounded-lg w-fit mb-4 bg-gradient-to-br from-sky-400 to-purple-600 text-white shadow-lg shadow-sky-500/20">
-                                        <feature.icon className="w-8 h-8" />
-                                    </div>
-                                    <CardTitle className="font-sora text-xl text-slate-900 dark:text-white">{feature.title}</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-slate-600 dark:text-slate-400 mb-4">{feature.description}</p>
-                                    <ul className="space-y-2">
-                                        {feature.benefits.map((benefit) => (
-                                            <li key={benefit} className="flex items-center gap-2 text-sm">
-                                                <CheckCircle className="w-4 h-4 text-sky-500 flex-shrink-0" /> 
-                                                <span className="text-slate-700 dark:text-slate-300">{benefit}</span>
-                                            </li> 
-                                        ))}
-                                    </ul>
-                                </CardContent>
-                            </Card>
+                        <motion.div variants={itemVariants} whileHover="hover" key={feature.title}>
+                            {/* [IMPROVED] Added 3D variant to the motion component */}
+                            <motion.div variants={card3DVariants} className="h-full">
+                                {/* [IMPROVED] Card uses glassmorphic styles and has a subtle background glow */}
+                                <Card className="h-full bg-white/40 dark:bg-slate-800/40 backdrop-blur-lg rounded-2xl border border-slate-200/80 dark:border-slate-700/80 transition-all duration-300 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))]">
+                                    <CardHeader>
+                                        <div className="p-3 rounded-lg w-fit mb-4 bg-gradient-to-br from-sky-400 to-purple-600 text-white shadow-lg shadow-sky-500/20">
+                                            <feature.icon className="w-8 h-8" />
+                                        </div>
+                                        <CardTitle className="font-sora text-xl text-slate-900 dark:text-white">{feature.title}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col h-full">
+                                        <p className="text-slate-600 dark:text-slate-400 mb-6 flex-grow">{feature.description}</p>
+                                        {/* [IMPROVED] Benefits are now styled as modern "chips" */}
+                                        <div className="flex flex-wrap gap-2">
+                                            {feature.benefits.map((benefit) => (
+                                                <div key={benefit} className="flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-800/50 px-3 py-1 text-sm">
+                                                    <CheckCircle className="w-4 h-4 text-sky-500 flex-shrink-0" /> 
+                                                    <span className="text-slate-700 dark:text-slate-300">{benefit}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
                         </motion.div>
                     ))}
                 </motion.div>
@@ -269,7 +279,8 @@ export default function Index() {
         </section>
         
         <section id="testimonials" className="py-20 bg-slate-50 dark:bg-slate-900/50">
-            <div className="container mx-auto px-4">
+           {/* ... Testimonials Section remains unchanged */}
+           <div className="container mx-auto px-4">
                 <div className="text-center mb-16">
                     <h2 className="text-4xl md:text-5xl font-bold font-sora text-slate-800 dark:text-slate-200">Trusted by Professionals</h2>
                     <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">See what our users are saying about Clarity OCR.</p>
@@ -299,6 +310,7 @@ export default function Index() {
         </section>
 
         <section id="faq" className="py-20">
+            {/* ... FAQ Section remains unchanged */}
             <div className="container mx-auto px-4 max-w-4xl">
                 <div className="text-center mb-12">
                     <h2 className="text-4xl md:text-5xl font-bold font-sora text-slate-800 dark:text-slate-200">Frequently Asked Questions</h2>
@@ -318,6 +330,7 @@ export default function Index() {
       </main>
 
       <footer className="bg-white dark:bg-[#0D1121] border-t border-slate-200 dark:border-slate-800/50">
+          {/* ... Footer remains unchanged */}
           <div className="container mx-auto px-4 py-12">
               <div className="text-center">
                   <Link to="/" className="inline-flex items-center gap-3 mb-4 group">

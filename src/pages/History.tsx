@@ -4,17 +4,23 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, History as HistoryIcon, Calendar, FileText, Trash2, Eye, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, History as HistoryIcon, Calendar, FileText, Trash2, Eye, Loader2, AlertTriangle, Clock } from 'lucide-react'; // Added Clock icon
 import { getHistory, deleteHistoryItem } from '@/services/historyService';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns'; // Switched to format for specific date style
 import { useAuth } from '@/contexts/AuthContext';
+
+// This custom type represents a Firestore Timestamp object or a standard date string/number.
+type FirestoreTimestamp = {
+  toDate: () => Date;
+};
+type DateInput = string | number | FirestoreTimestamp;
 
 interface HistoryItem {
   id: string;
   fileName?: string;
-  createdAt?: string;
-  lastViewedAt?: string; // Added for Last Seen Date
+  createdAt?: DateInput;
+  lastViewedAt?: DateInput; // This field might be null or undefined
   analysisResult?: {
     totalTasks?: number;
     groups?: Array<any>;
@@ -30,6 +36,7 @@ interface ConfirmationDialogProps {
 }
 
 const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, isDeleting }) => {
+  // ... (This component remains unchanged)
   return (
     <AnimatePresence>
       {isOpen && (
@@ -140,14 +147,30 @@ function HistoryPage() {
     }
   };
 
-  const renderDate = (dateString?: string) => {
-    if (!dateString) return 'Date unknown';
+  /**
+   * [IMPROVED] Renders dates in 'dd MMM yyyy' format.
+   * Gracefully handles various date inputs including Firestore Timestamps.
+   */
+  const renderDate = (dateInput?: DateInput) => {
+    if (!dateInput) return 'Date unknown';
+
+    let date: Date;
+
     try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        return 'Invalid date format';
+      if (typeof dateInput === 'object' && dateInput !== null && 'toDate' in dateInput) {
+        date = (dateInput as FirestoreTimestamp).toDate();
+      } else if (typeof dateInput === 'string' || typeof dateInput === 'number') {
+        date = new Date(dateInput);
+      } else {
+        return 'Unsupported date format';
       }
-      return formatDistanceToNow(date, { addSuffix: true });
+
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      
+      // Use the new date format
+      return format(date, 'dd MMM yyyy');
     } catch {
       return 'Invalid date';
     }
@@ -160,6 +183,7 @@ function HistoryPage() {
   };
 
   if (loading) {
+    // ... (Loading state remains unchanged)
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0D1121] relative overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-white dark:bg-[#0D1121]"></div>
@@ -201,14 +225,15 @@ function HistoryPage() {
 
           {historyItems.length === 0 ? (
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
-                <Card className="p-12 text-center bg-white/30 dark:bg-slate-900/30 backdrop-blur-lg border-slate-200 dark:border-slate-800 rounded-2xl">
-                  <HistoryIcon className="w-16 h-16 mx-auto mb-4 text-slate-400 dark:text-slate-500" />
-                  <h3 className="text-2xl font-bold font-sora mb-2 text-slate-800 dark:text-slate-100">No History Found</h3>
-                  <p className="text-slate-600 dark:text-slate-400 mb-6">When you analyze a document, your results will be saved here.</p>
-                  <Button onClick={() => navigate('/')} size="lg" className="text-base h-12 px-8 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold shadow-lg shadow-sky-500/20 hover:scale-105 transition-transform">
-                    Analyze First Document
-                  </Button>
-                </Card>
+              {/* ... (Empty state remains unchanged) */}
+              <Card className="p-12 text-center bg-white/30 dark:bg-slate-900/30 backdrop-blur-lg border-slate-200 dark:border-slate-800 rounded-2xl">
+                <HistoryIcon className="w-16 h-16 mx-auto mb-4 text-slate-400 dark:text-slate-500" />
+                <h3 className="text-2xl font-bold font-sora mb-2 text-slate-800 dark:text-slate-100">No History Found</h3>
+                <p className="text-slate-600 dark:text-slate-400 mb-6">When you analyze a document, your results will be saved here.</p>
+                <Button onClick={() => navigate('/')} size="lg" className="text-base h-12 px-8 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold shadow-lg shadow-sky-500/20 hover:scale-105 transition-transform">
+                  Analyze First Document
+                </Button>
+              </Card>
             </motion.div>
           ) : (
             <motion.div className="space-y-4" style={{ perspective: '1000px' }} variants={containerVariants} initial="hidden" animate="show">
@@ -228,10 +253,13 @@ function HistoryPage() {
                                           <Calendar className="w-4 h-4" />
                                           <span>Created: {renderDate(item.createdAt)}</span>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                          <Calendar className="w-4 h-4" />
-                                          <span>Last Seen: {renderDate(item.lastViewedAt)}</span>
-                                      </div>
+                                      {/* [IMPROVED] Conditionally render "Last Seen" only if data exists */}
+                                      {item.lastViewedAt && (
+                                        <div className="flex items-center gap-2">
+                                            <Clock className="w-4 h-4" />
+                                            <span>Last Seen: {renderDate(item.lastViewedAt)}</span>
+                                        </div>
+                                      )}
                                   </div>
                                   <div className="flex items-center gap-2 mt-4 flex-wrap">
                                       <Badge variant="secondary" className="bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">{item.analysisResult?.totalTasks ?? 0} tasks</Badge>

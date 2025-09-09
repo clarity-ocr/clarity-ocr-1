@@ -1,265 +1,292 @@
-// import { useState, useCallback } from 'react';
-// import {
-//   Eye, Sparkles, Zap, FileText, Target, Clock, Menu, X, User,
-//   LogOut, History as HistoryIcon, Loader2, Star, Settings, CheckCircle,
-//   UploadCloud, ScanLine, ListChecks, Twitter, Github, Linkedin, 
-//   ArrowDown
-// } from 'lucide-react';
+// import { useState, useEffect } from 'react';
+// import { useNavigate } from 'react-router-dom';
+// import { motion, AnimatePresence, Variants } from 'framer-motion';
 // import { Button } from '@/components/ui/button';
-// import { Card, CardContent, CardTitle, CardHeader } from '@/components/ui/card';
+// import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 // import { Badge } from '@/components/ui/badge';
-// import { FileUpload } from '@/components/FileUpload';
-// import { analyzeDocument } from '@/services/aiAnalysis';
-// import { AnalysisResult } from '@/types/task';
-// import { useToast } from '@/components/ui/use-toast'; 
-// import { signOut } from 'firebase/auth';
-// import { auth } from '@/firebase';
-// import { useNavigate, Link } from 'react-router-dom';
-// import { addToHistory } from '@/services/historyService';
+// import { ArrowLeft, History as HistoryIcon, Calendar, FileText, Trash2, Eye, Loader2, AlertTriangle } from 'lucide-react';
+// import { getHistory, deleteHistoryItem } from '@/services/historyService';
+// import { useToast } from '@/hooks/use-toast';
+// import { formatDistanceToNow } from 'date-fns';
 // import { useAuth } from '@/contexts/AuthContext';
-// import {
-//   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-//   DropdownMenuSeparator, DropdownMenuTrigger
-// } from "@/components/ui/dropdown-menu";
-// import {
-//   Accordion, AccordionContent, AccordionItem, AccordionTrigger
-// } from "@/components/ui/accordion";
-// import { motion, Variants } from "framer-motion";
 
-// const FEATURES_DATA = [
-//   { icon: Eye, title: "Advanced OCR Technology", description: "Accurately extracts text from images, PDFs, and even handwritten notes with state-of-the-art recognition.", benefits: ["Multi-language support", "Handwriting recognition", "Table extraction"] },
-//   { icon: Target, title: "Smart Task Extraction", description: "AI identifies actionable tasks, deadlines, and key information from unstructured text content.", benefits: ["Automatic task detection", "Priority assignment", "Deadline extraction"] },
-//   { icon: Clock, title: "AI Time Estimation", description: "Predicts the time required to complete each task based on its complexity and your historical data.", benefits: ["Accurate time predictions", "Customizable estimates", "Improves over time"] },
-//   { icon: Zap, title: "Lightning Fast Processing", description: "Optimized cloud algorithms ensure you get results in seconds, not minutes, even for large documents.", benefits: ["Real-time processing", "Batch uploads", "Cloud acceleration"] },
-//   { icon: FileText, title: "Multi-Format Support", description: "Handles a wide range of document types, including PDFs, all major image formats, and Word documents.", benefits: ["PDF processing", "Image OCR", "Document parsing"] },
-//   { icon: User, title: "User-Friendly Interface", description: "Intuitive drag-and-drop design makes it easy to upload, analyze, and manage your tasks.", benefits: ["Simple drag & drop", "Progress tracking", "Multiple export options"] }
-// ];
-// const TESTIMONIALS = [
-//   { name: "Sarah Johnson", role: "Project Manager, TechCorp", content: "Clarity OCR has transformed how we process client briefs. It cuts our planning time by over 70%!", avatar: "SJ", rating: 5 },
-//   { name: "Michael Chen", role: "PhD Researcher, UniLab", content: "The accuracy is phenomenal. It understands scientific papers and extracts tasks like a human assistant.", avatar: "MC", rating: 5 },
-//   { name: "David Rodriguez", role: "Legal Assistant, Law Partners", content: "Finding key dates and obligations in contracts used to take hours. Now it's instant. An absolute game-changer.", avatar: "DR", rating: 5 }
-// ];
-// const FAQ_ITEMS = [
-//   { question: "What file formats do you support?", answer: "We support PDFs, JPG, PNG, GIF, BMP, TIFF, and WEBP images. Our system is optimized for high-resolution scans and digital documents for best results." },
-//   { question: "Is my data secure?", answer: "Absolutely. We use industry-standard encryption (TLS in transit, AES-256 at rest). Your file content is deleted from our servers immediately after analysis is complete. Your privacy is our priority." },
-//   { question: "How accurate is the task extraction?", answer: "Our AI model is trained on millions of documents and achieves very high accuracy in identifying tasks, dates, and priorities. Accuracy is highest on clear, structured text." },
-//   { question: "Can I export the results?", answer: "Yes, you can export your generated task lists as JSON, PDF, or CSV files directly from the checklist page after analysis. This makes it easy to import into your favorite project management tools." }
-// ];
+// // This custom type represents a Firestore Timestamp object or a standard date string/number.
+// type FirestoreTimestamp = {
+//   toDate: () => Date;
+// };
+// type DateInput = string | number | FirestoreTimestamp;
 
-// export default function Index() {
-//   const { user } = useAuth();
-//   const [isAnalyzing, setIsAnalyzing] = useState(false);
-//   const [progress, setProgress] = useState(0);
-//   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-//   const [isLoggingOut, setIsLoggingOut] = useState(false);
-//   const { toast } = useToast();
+// interface HistoryItem {
+//   id: string;
+//   fileName?: string;
+//   createdAt?: DateInput;
+//   lastViewedAt?: DateInput;
+//   analysisResult?: {
+//     totalTasks?: number;
+//     groups?: Array<any>;
+//   };
+// }
+
+// // --- Confirmation Dialog Component ---
+// interface ConfirmationDialogProps {
+//   isOpen: boolean;
+//   onClose: () => void;
+//   onConfirm: () => void;
+//   isDeleting: boolean;
+// }
+
+// const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, isDeleting }) => {
+//   // ... (This component remains unchanged)
+//   return (
+//     <AnimatePresence>
+//       {isOpen && (
+//         <motion.div
+//           initial={{ opacity: 0 }}
+//           animate={{ opacity: 1 }}
+//           exit={{ opacity: 0 }}
+//           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+//           onClick={onClose}
+//         >
+//           <motion.div
+//             initial={{ opacity: 0, scale: 0.9, y: 20 }}
+//             animate={{ opacity: 1, scale: 1, y: 0 }}
+//             exit={{ opacity: 0, scale: 0.9, y: 20 }}
+//             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+//             className="w-full max-w-md p-4"
+//             onClick={(e) => e.stopPropagation()}
+//           >
+//             <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg border border-slate-200/80 dark:border-slate-700/80 rounded-2xl">
+//               <CardHeader>
+//                 <div className="flex items-center gap-3">
+//                   <div className="w-12 h-12 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
+//                     <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+//                   </div>
+//                   <div>
+//                     <CardTitle className="font-sora text-slate-900 dark:text-white">Confirm Deletion</CardTitle>
+//                     <CardDescription className="text-slate-600 dark:text-slate-400">
+//                       This action is irreversible.
+//                     </CardDescription>
+//                   </div>
+//                 </div>
+//               </CardHeader>
+//               <CardContent>
+//                 <p className="text-slate-700 dark:text-slate-300">
+//                   Are you sure you want to permanently delete this analysis?
+//                 </p>
+//               </CardContent>
+//               <CardFooter className="flex justify-end gap-3">
+//                 <Button variant="outline" onClick={onClose} className="bg-transparent">
+//                   Cancel
+//                 </Button>
+//                 <Button variant="destructive" onClick={onConfirm} disabled={isDeleting}>
+//                   {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+//                   Delete
+//                 </Button>
+//               </CardFooter>
+//             </Card>
+//           </motion.div>
+//         </motion.div>
+//       )}
+//     </AnimatePresence>
+//   );
+// };
+
+
+// function HistoryPage() {
+//   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [deletingId, setDeletingId] = useState<string | null>(null);
+//   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 //   const navigate = useNavigate();
+//   const { toast } = useToast();
+//   const { user } = useAuth();
 
-//   const handleAnalyze = useCallback(async (content: string, fileName?: string) => {
-//     if (!user) {
-//       toast({ title: "Authentication Required", description: "Please log in or sign up to analyze documents.", variant: "destructive" });
-//       navigate('/login');
+//   useEffect(() => {
+//     if (user) {
+//       const fetchHistory = async () => {
+//         try {
+//           const items = await getHistory();
+//           setHistoryItems(items);
+//         } catch (error) {
+//           console.error("Failed to fetch history:", error);
+//           toast({ title: "Error", description: "Failed to load history.", variant: "destructive" });
+//         } finally {
+//           setLoading(false);
+//         }
+//       };
+//       fetchHistory();
+//     } else {
+//       setLoading(false);
+//     }
+//   }, [toast, user]);
+
+//   const handleOpenConfirm = (id: string) => {
+//     setItemToDelete(id);
+//   };
+
+//   const handleCloseConfirm = () => {
+//     setItemToDelete(null);
+//   };
+
+//   const handleConfirmDelete = async () => {
+//     if (!itemToDelete || !user) {
+//       toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
 //       return;
 //     }
-//     setIsAnalyzing(true);
-//     setProgress(0);
-//     const progressInterval = setInterval(() => setProgress(p => Math.min(p + 10, 90)), 200);
+
+//     setDeletingId(itemToDelete);
 //     try {
-//       const result: AnalysisResult = await analyzeDocument(content, fileName);
-//       clearInterval(progressInterval);
-//       setProgress(100);
-//       await new Promise(resolve => setTimeout(resolve, 300));
-//       const historyId = await addToHistory(result, fileName || 'Untitled Document');
-//       toast({ title: "Analysis Complete! 🎉", description: `Found ${result.totalTasks} tasks. Redirecting...` });
-//       setTimeout(() => navigate(`/checklist/${historyId}`), 500);
-//     } catch (error: any) {
-//       clearInterval(progressInterval);
-//       console.error("[Index] Analysis failed:", error);
-//       toast({ title: "Analysis Failed", description: error.message || "An unexpected error occurred.", variant: "destructive" });
+//       await deleteHistoryItem(user.uid, itemToDelete);
+//       setHistoryItems(prev => prev.filter(item => item.id !== itemToDelete));
+//       toast({ title: "Deleted", description: "History item removed successfully." });
+//     } catch (error) {
+//       toast({ title: "Error", description: "Failed to delete history item.", variant: "destructive" });
 //     } finally {
-//       setIsAnalyzing(false);
-//       setProgress(0);
+//       setDeletingId(null);
+//       handleCloseConfirm();
 //     }
-//   }, [navigate, toast, user]);
+//   };
 
-//   const handleLogout = useCallback(async () => {
-//     setIsLoggingOut(true);
+//   /**
+//    * [FIXED] Renders a date robustly by using an `if / else if` structure.
+//    * This helps TypeScript correctly narrow the type of `dateInput` in each
+//    * block, resolving the "No overload matches this call" error.
+//    */
+//   const renderDate = (dateInput?: DateInput) => {
+//     if (!dateInput) return 'Date unknown';
+
+//     let date: Date;
+
 //     try {
-//       await signOut(auth);
-//       toast({ title: "Logged Out", description: "You have been successfully logged out." });
-//       navigate('/login');
-//     } catch (error: any) {
-//       console.error("[Index] Logout error:", error);
-//       toast({ title: "Logout Failed", description: "There was an error logging out. Please try again.", variant: "destructive" });
-//     } finally {
-//       setIsLoggingOut(false);
+//       // Handle objects with a .toDate() method, like Firestore Timestamps
+//       if (typeof dateInput === 'object' && dateInput !== null && 'toDate' in dateInput) {
+//         date = (dateInput as FirestoreTimestamp).toDate();
+//       } 
+//       // Handle strings or numbers, which are valid for the new Date() constructor
+//       else if (typeof dateInput === 'string' || typeof dateInput === 'number') {
+//         date = new Date(dateInput);
+//       } 
+//       // If the format is something else, return an error string
+//       else {
+//         return 'Unsupported date format';
+//       }
+
+//       // Check if the resulting date is valid before formatting
+//       if (isNaN(date.getTime())) {
+//         return 'Invalid date';
+//       }
+      
+//       return formatDistanceToNow(date, { addSuffix: true });
+//     } catch {
+//       return 'Invalid date';
 //     }
-//   }, [navigate, toast]);
+//   };
+  
+//   const containerVariants: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+//   const itemVariants: Variants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } } };
+//   const card3DVariants: Variants = {
+//       hover: { scale: 1.03, rotateY: 5, boxShadow: "0px 15px 30px rgba(0,0,0,0.15)", transition: { type: 'spring', stiffness: 300, damping: 20 } }
+//   };
 
-//   const toggleMobileMenu = useCallback(() => setMobileMenuOpen(prev => !prev), []);
-//   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
-
-//   const scrollToSection = useCallback((sectionId: string) => {
-//     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
-//     closeMobileMenu();
-//   }, [closeMobileMenu]);
-
-//   const containerVariants: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.2 } } };
-//   const itemVariants: Variants = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } } };
-
-//   const GuestNav = () => (
-//     <>
-//       <Button variant="ghost" onClick={() => navigate('/features')}>Features</Button>
-//       <Button variant="ghost" onClick={() => navigate('/pricing')}>Pricing</Button>
-//       <Button variant="ghost" onClick={() => navigate('/about')}>About</Button>
-//       <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
-//       <Button variant="outline" onClick={() => navigate('/login')}>Login</Button>
-//       <Button onClick={() => navigate('/register')}>Sign Up Free</Button>
-//     </>
-//   );
-
-//   const UserNav = () => (
-//     <>
-//       <Button variant="ghost" onClick={() => scrollToSection('upload-zone')}>Analyze</Button>
-//       <Button variant="ghost" onClick={() => navigate('/history')}>History</Button>
-//       <Button variant="ghost" onClick={() => navigate('/pricing')}>Pricing</Button>
-//       <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
-//       <DropdownMenu>
-//         <DropdownMenuTrigger asChild>
-//           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-//             <User className="h-6 w-6 text-slate-600 dark:text-slate-300" />
-//           </Button>
-//         </DropdownMenuTrigger>
-//         <DropdownMenuContent className="w-56" align="end" forceMount>
-//           <DropdownMenuLabel className="font-normal">
-//             <div className="flex flex-col space-y-1">
-//               <p className="text-sm font-medium leading-none">My Account</p>
-//               <p className="text-xs leading-none text-muted-foreground truncate">{user?.email}</p>
-//             </div>
-//           </DropdownMenuLabel>
-//           <DropdownMenuSeparator />
-//           <DropdownMenuItem onClick={() => navigate('/history')}><HistoryIcon className="mr-2 h-4 w-4" /><span>History</span></DropdownMenuItem>
-//           <DropdownMenuItem onClick={() => navigate('/about')}><User className="mr-2 h-4 w-4" /><span>About</span></DropdownMenuItem>
-//           <DropdownMenuItem disabled><Settings className="mr-2 h-4 w-4" /><span>Settings</span></DropdownMenuItem>
-//           <DropdownMenuSeparator />
-//           <DropdownMenuItem onSelect={handleLogout} className="text-red-600 focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-900/50">
-//             {isLoggingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
-//             <span>Log out</span>
-//           </DropdownMenuItem>
-//         </DropdownMenuContent>
-//       </DropdownMenu>
-//     </>
-//   );
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0D1121] relative overflow-hidden">
+//         <div className="absolute inset-0 -z-10 bg-white dark:bg-[#0D1121]"></div>
+//         <div className="absolute -top-1/4 left-1/2 -translate-x-1/2 w-[150%] h-[150%] opacity-20 dark:opacity-30 bg-[radial-gradient(circle_at_center,_#06b6d420,_#3b82f640,_#8b5cf660,_transparent_70%)]" aria-hidden="true"></div>
+//         <div className="text-center">
+//           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-sky-500" />
+//           <p className="text-lg text-slate-600 dark:text-slate-400">Loading your history...</p>
+//         </div>
+//       </div>
+//     );
+//   }
 
 //   return (
-//     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-//       <nav className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 transition-shadow hover:shadow-md">
-//         <div className="container mx-auto px-4 py-3">
-//           <div className="flex items-center justify-between">
-//             <Link to="/" className="flex items-center gap-3 group" onClick={() => scrollToSection('hero')}>
-//               <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-xl shadow-lg transform transition-all duration-300 group-hover:scale-110 group-hover:rotate-[-5deg]">
-//                 <img src="/icon.png" alt="Clarity OCR Logo" className="w-6 h-6" />
+//     <>
+//       <ConfirmationDialog 
+//         isOpen={!!itemToDelete}
+//         onClose={handleCloseConfirm}
+//         onConfirm={handleConfirmDelete}
+//         isDeleting={!!deletingId}
+//       />
+//       <div className="min-h-screen bg-slate-50 dark:bg-[#0D1121] text-slate-800 dark:text-slate-200 font-sans relative overflow-hidden">
+//         <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap'); .font-sora { font-family: 'Sora', sans-serif; }`}</style>
+//         <div className="absolute inset-0 -z-10 bg-white dark:bg-[#0D1121]"></div>
+//         <div className="absolute -top-1/4 left-1/2 -translate-x-1/2 w-[150%] h-[150%] opacity-20 dark:opacity-30 bg-[radial-gradient(circle_at_center,_#06b6d420,_#3b82f640,_#8b5cf660,_transparent_70%)]" aria-hidden="true"></div>
+        
+//         <div className="container mx-auto px-4 py-8 max-w-4xl relative z-10">
+//           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="flex items-center justify-between mb-10">
+//             <div className="flex items-center gap-4">
+//               <Button variant="outline" size="icon" onClick={() => navigate('/')} className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-300 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-800/80">
+//                 <ArrowLeft className="w-4 h-4" />
+//               </Button>
+//               <div>
+//                 <h1 className="text-3xl font-bold font-sora text-slate-900 dark:text-white">Analysis History</h1>
+//                 <p className="text-slate-500 dark:text-slate-400">Review your past document analyses.</p>
 //               </div>
-//               <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 hidden sm:block">Clarity OCR</h1>
-//             </Link>
-//             <button className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" onClick={toggleMobileMenu} aria-label="Toggle menu">
-//               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-//             </button>
-//             <div className="hidden md:flex items-center gap-2">
-//               {user ? <UserNav /> : <GuestNav />}
 //             </div>
-//           </div>
-//           {mobileMenuOpen && (
-//             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="md:hidden mt-4 pb-4 space-y-2 border-t border-slate-200 dark:border-slate-700 overflow-hidden">
-//               {user ? (
-//                 <>
-//                   <Button variant="ghost" className="w-full justify-start text-base py-6" onClick={() => { scrollToSection('upload-zone'); closeMobileMenu(); }}>Analyze Document</Button>
-//                   <Button variant="ghost" className="w-full justify-start text-base py-6" onClick={() => { navigate('/history'); closeMobileMenu(); }}>History</Button>
-//                   <Button variant="ghost" className="w-full justify-start text-base py-6" onClick={() => { navigate('/pricing'); closeMobileMenu(); }}>Pricing</Button>
-//                   <div className="pt-2">
-//                     <Button variant="destructive" className="w-full justify-center text-base py-6" onClick={handleLogout} disabled={isLoggingOut}>
-//                       {isLoggingOut ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <LogOut className="w-5 h-5 mr-2" />} Logout
-//                     </Button>
-//                   </div>
-//                 </>
-//               ) : (
-//                 <>
-//                   <Button variant="ghost" className="w-full justify-start text-base py-6" onClick={() => { navigate('/features'); closeMobileMenu(); }}>Features</Button>
-//                   <Button variant="ghost" className="w-full justify-start text-base py-6" onClick={() => { navigate('/pricing'); closeMobileMenu(); }}>Pricing</Button>
-//                   <Button variant="ghost" className="w-full justify-start text-base py-6" onClick={() => { navigate('/about'); closeMobileMenu(); }}>About</Button>
-//                   <div className="flex gap-2 pt-4">
-//                     <Button variant="outline" className="w-full text-base py-6" onClick={() => { navigate('/login'); closeMobileMenu(); }}>Login</Button>
-//                     <Button className="w-full text-base py-6" onClick={() => { navigate('/register'); closeMobileMenu(); }}>Sign Up</Button>
-//                   </div>
-//                 </>
-//               )}
+//             <HistoryIcon className="w-8 h-8 text-sky-500" />
+//           </motion.div>
+
+//           {historyItems.length === 0 ? (
+//             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
+//                 <Card className="p-12 text-center bg-white/30 dark:bg-slate-900/30 backdrop-blur-lg border-slate-200 dark:border-slate-800 rounded-2xl">
+//                   <HistoryIcon className="w-16 h-16 mx-auto mb-4 text-slate-400 dark:text-slate-500" />
+//                   <h3 className="text-2xl font-bold font-sora mb-2 text-slate-800 dark:text-slate-100">No History Found</h3>
+//                   <p className="text-slate-600 dark:text-slate-400 mb-6">When you analyze a document, your results will be saved here.</p>
+//                   <Button onClick={() => navigate('/')} size="lg" className="text-base h-12 px-8 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold shadow-lg shadow-sky-500/20 hover:scale-105 transition-transform">
+//                     Analyze First Document
+//                   </Button>
+//                 </Card>
+//             </motion.div>
+//           ) : (
+//             <motion.div className="space-y-4" style={{ perspective: '1000px' }} variants={containerVariants} initial="hidden" animate="show">
+//               {historyItems.map((item) => (
+//                 <motion.div key={item.id} variants={itemVariants} whileHover="hover">
+//                     <motion.div variants={card3DVariants}>
+//                       <Card className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-lg border border-slate-200/80 dark:border-slate-700/80 transition-shadow duration-300 rounded-2xl overflow-hidden">
+//                           <CardHeader className="p-4 sm:p-6">
+//                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+//                                 <div className="flex-grow min-w-0">
+//                                   <CardTitle className="text-lg flex items-center gap-3 font-sora text-slate-900 dark:text-white">
+//                                       <FileText className="w-5 h-5 flex-shrink-0 text-sky-500" />
+//                                       <span className="truncate break-all">{item.fileName || 'Untitled Analysis'}</span>
+//                                   </CardTitle>
+//                                   <div className="flex flex-col gap-2 mt-2 text-sm text-slate-500 dark:text-slate-400">
+//                                       <div className="flex items-center gap-2">
+//                                           <Calendar className="w-4 h-4" />
+//                                           <span>Created: {renderDate(item.createdAt)}</span>
+//                                       </div>
+//                                       <div className="flex items-center gap-2">
+//                                           <Calendar className="w-4 h-4" />
+//                                           <span>Last Seen: {renderDate(item.lastViewedAt)}</span>
+//                                       </div>
+//                                   </div>
+//                                   <div className="flex items-center gap-2 mt-4 flex-wrap">
+//                                       <Badge variant="secondary" className="bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">{item.analysisResult?.totalTasks ?? 0} tasks</Badge>
+//                                       <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300">{item.analysisResult?.groups?.length ?? 0} categories</Badge>
+//                                   </div>
+//                                 </div>
+//                                 <div className="flex gap-2 flex-shrink-0 self-start sm:self-center">
+//                                   <Button variant="outline" size="sm" onClick={() => navigate(`/checklist/${item.id}`)} className="flex items-center gap-1 bg-white/50 dark:bg-slate-700/50 border-slate-300 dark:border-slate-600">
+//                                       <Eye className="w-4 h-4" /> View
+//                                   </Button>
+//                                   <Button variant="destructive" size="sm" onClick={() => handleOpenConfirm(item.id)} disabled={deletingId === item.id} className="flex items-center gap-1">
+//                                       {deletingId === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Delete
+//                                   </Button>
+//                                 </div>
+//                             </div>
+//                           </CardHeader>
+//                       </Card>
+//                     </motion.div>
+//                 </motion.div>
+//               ))}
 //             </motion.div>
 //           )}
 //         </div>
-//       </nav>
-      
-//       <main>
-//         <section id="hero" className="relative overflow-hidden pt-20 pb-24">
-//             <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-900/95"></div>
-//             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60rem] h-[60rem] opacity-30 dark:opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-purple-500/80 via-indigo-500/50 to-transparent rounded-full blur-3xl" aria-hidden="true"></div>
-//             <div className="container mx-auto px-4 text-center">
-//                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-//                   <Badge variant="outline" className="py-1.5 px-4 text-sm border-purple-300 text-purple-600 dark:border-purple-700 dark:text-purple-400 backdrop-blur-sm">
-//                     <Sparkles className="w-4 h-4 mr-2" /> AI-Powered Task Extraction
-//                   </Badge>
-//                 </motion.div>
-//                 <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="mt-6 text-4xl md:text-6xl font-bold tracking-tighter bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 bg-clip-text text-transparent dark:from-white dark:via-slate-300 dark:to-white">
-//                   Transform Documents into Action
-//                 </motion.h1>
-//                 <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="mt-6 text-lg md:text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-//                   Clarity OCR intelligently reads your documents, identifies tasks, and creates organized checklists, saving you hours of manual work.
-//                 </motion.p>
-//                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="mt-8 flex justify-center gap-4">
-//                   <Button size="lg" className="text-base" onClick={() => scrollToSection('upload-zone')}>
-//                     Get Started Below <ArrowDown className="w-4 h-4 ml-2" />
-//                   </Button>
-//                 </motion.div>
-//             </div>
-//         </section>
-
-//         <section id="upload-zone" className="container mx-auto px-4 pb-20 -mt-8">
-//           <div className="p-6 sm:p-8 bg-white dark:bg-slate-800/50 shadow-2xl rounded-2xl border border-slate-200 dark:border-slate-700 max-w-4xl mx-auto ring-1 ring-black/5 dark:ring-white/10">
-//             <h2 className="text-2xl font-bold text-center mb-2 text-slate-800 dark:text-slate-200">Start Your Analysis</h2>
-//             <p className="text-center text-slate-500 dark:text-slate-400 mb-6">Upload a file or paste text to begin.</p>
-//             <FileUpload onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} progress={progress} />
-//           </div>
-//         </section>
-        
-//         <section id="how-it-works" className="py-20">
-//           <div className="container mx-auto px-4">
-//             <div className="text-center mb-12">
-//               <h2 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-slate-200">A Simple Three-Step Process</h2>
-//               <p className="mt-4 text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">Get from document to checklist in under a minute.</p>
-//             </div>
-//             <motion.div variants={containerVariants} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.3 }} className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-//                 {/* ... How it works steps ... */}
-//             </motion.div>
-//           </div>
-//         </section>
-
-//         <section id="features" className="py-20 bg-slate-100 dark:bg-slate-900/50">
-//            {/* ... Features section ... */}
-//         </section>
-        
-//         <section id="testimonials" className="py-20">
-//             {/* ... Testimonials section ... */}
-//         </section>
-
-//         <section id="faq" className="py-20 bg-slate-100 dark:bg-slate-900/50">
-//             {/* ... FAQ section ... */}
-//         </section>
-//       </main>
-
-//       <footer className="bg-slate-800 dark:bg-slate-950 text-slate-400">
-//         {/* ... Footer section ... */}
-//       </footer>
-
-//       <style>{`html { scroll-behavior: smooth; }`}</style>
-//     </div>
+//       </div>
+//     </>
 //   );
 // }
+
+// export default HistoryPage;
