@@ -7,12 +7,27 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
-*.local
 
-# Editor directories and files
+# Local environment
+*.local
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Firebase / Google secrets (optional, if you use service accounts)
+*.secret.json
+google-services.json
+GoogleService-Info.plist
+
+# Editor files
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,3 +37,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Package manager stores
+.npm
+.yarn
+.pnpm-store
+
+# OS files
+Thumbs.db
