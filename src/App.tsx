@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast'; // Assuming you use this toaster
-import { Toaster as ShadcnToaster } from "@/components/ui/toaster"; // For shadcn/ui toasts
+import { Toaster } from 'react-hot-toast'; 
+import { Toaster as ShadcnToaster } from "@/components/ui/toaster"; 
 
 // --- CONTEXT & AUTH ---
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Index from './pages/Index';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Onboarding from './pages/Onboarding'; // NEW IMPORT
 import ChecklistPage from './pages/Checklist';
 import History from './pages/History';
 import PricingPage from './pages/PricingPage';
@@ -24,43 +25,42 @@ import { Loader2 } from 'lucide-react';
 
 // ===================================================================
 // --- ROUTE GUARDS ---
-// These components protect your pages
 // ===================================================================
 
-/**
- * For routes that REQUIRE a user to be logged in.
- * If not logged in, redirects to the /login page.
- */
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, loading } = useAuth();
+    
     if (loading) {
         return <div className="flex h-screen w-full items-center justify-center bg-slate-50 dark:bg-slate-900"><Loader2 className="h-10 w-10 animate-spin text-slate-500" /></div>;
     }
+    
     if (!user) {
         return <Navigate to="/login" replace />;
     }
+
+    // Force onboarding if not completed and trying to access main app
+    if (!user.onboardingCompleted && window.location.pathname !== '/onboarding') {
+        return <Navigate to="/onboarding" replace />;
+    }
+
     return <>{children}</>;
 };
 
-/**
- * For routes that are ONLY for logged-out users (guests).
- * If a logged-in user tries to access, redirects to the home page.
- */
 const GuestRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, loading } = useAuth();
+    
     if (loading) {
         return <div className="flex h-screen w-full items-center justify-center bg-slate-50 dark:bg-slate-900"><Loader2 className="h-10 w-10 animate-spin text-slate-500" /></div>;
     }
+    
     if (user) {
-        return <Navigate to="/" replace />;
+        // Redirect based on onboarding status
+        return <Navigate to={user.onboardingCompleted ? "/" : "/onboarding"} replace />;
     }
+    
     return <>{children}</>;
 };
 
-/**
- * For routes that require a user to be an ADMIN.
- * If not an admin, redirects to the home page.
- */
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, loading } = useAuth();
     if (loading) {
@@ -99,8 +99,8 @@ const App: React.FC = () => {
           {/* ====================================================== */}
           {/*       PROTECTED ROUTES (Require Login)                 */}
           {/* ====================================================== */}
-          {/* ✅ CHANGED: The Index page is now protected. This is your new default logged-in page. */}
           <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} /> {/* NEW ROUTE */}
           <Route path="/checklist/:id" element={<ProtectedRoute><ChecklistPage /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
