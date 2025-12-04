@@ -118,25 +118,33 @@ export default function Index() {
     if (!user) navigate('/login');
   }, [user, navigate]);
 
-  const handleAnalyze = useCallback(async (content: string, fileName?: string) => {
-    // ... This function remains unchanged
-    if (!user) { toast({ title: "Authentication Required", variant: "destructive" }); return; }
-    setIsAnalyzing(true); setProgress(0);
-    const progressInterval = setInterval(() => setProgress(p => Math.min(p + 10, 90)), 200);
-    try {
-      const result: AnalysisResult = await analyzeDocument(content, fileName);
-      clearInterval(progressInterval); setProgress(100);
-      await new Promise(resolve => setTimeout(resolve, 300));
-      const historyId = await addToHistory(result, fileName || 'Untitled Document');
-      toast({ title: "Analysis Complete!", description: `Found ${result.totalTasks} tasks. Redirecting...` });
-      setTimeout(() => navigate(`/checklist/${historyId}`), 500);
-    } catch (error: any) {
-      clearInterval(progressInterval);
-      toast({ title: "Analysis Failed", description: error.message, variant: "destructive" });
-    } finally {
-      setIsAnalyzing(false); setProgress(0);
-    }
-  }, [navigate, toast, user]);
+// Find the handleAnalyze function inside src/pages/Index.tsx and update it:
+
+const handleAnalyze = useCallback(async (content: string, fileName?: string) => {
+  if (!user) { toast({ title: "Authentication Required", variant: "destructive" }); return; }
+  
+  setIsAnalyzing(true); 
+  setProgress(0);
+  const progressInterval = setInterval(() => setProgress(p => Math.min(p + 10, 90)), 200);
+  
+  try {
+    // Fixed: Removed 'fileName' argument to match 'Expected 1 arguments' error
+    const result: AnalysisResult = await analyzeDocument(content);
+    
+    clearInterval(progressInterval); setProgress(100);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const historyId = await addToHistory(result, fileName || 'Untitled Document');
+    toast({ title: "Analysis Complete!", description: `Found ${result.totalTasks} tasks. Redirecting...` });
+    
+    setTimeout(() => navigate(`/checklist/${historyId}`), 500);
+  } catch (error: any) {
+    clearInterval(progressInterval);
+    toast({ title: "Analysis Failed", description: error.message, variant: "destructive" });
+  } finally {
+    setIsAnalyzing(false); setProgress(0);
+  }
+}, [navigate, toast, user]);
 
   const toggleMobileMenu = useCallback(() => setMobileMenuOpen(prev => !prev), []);
   const scrollToSection = (sectionId: string) => {
