@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
 import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { z } from 'zod';
@@ -12,7 +11,7 @@ import { signInWithEmailAndPassword, AuthError } from 'firebase/auth';
 import { auth } from '@/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
-// --- Interactive 3D Binocular Icon (Preserved) ---
+// --- Interactive 3D Binocular Icon ---
 const InteractiveBinocularIcon = () => {
   const ref = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
@@ -111,10 +110,9 @@ export default function Login() {
   const [loadingState, setLoadingState] = useState<LoadingState>('initializing');
   const [rememberMe, setRememberMe] = useState(false);
   
-  const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loginWithGoogle } = useAuth(); // Use context
+  const { user, loginWithGoogle } = useAuth();
 
   const from = location.state?.from?.pathname || '/';
 

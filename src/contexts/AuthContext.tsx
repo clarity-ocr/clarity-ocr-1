@@ -4,8 +4,7 @@ import {
   User, 
   signInWithPopup, 
   signInWithRedirect,
-  getRedirectResult,
-  GoogleAuthProvider 
+  getRedirectResult
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '@/firebase';
@@ -84,7 +83,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const result = await getRedirectResult(auth);
         if (result && result.user) {
-          // User just came back from a Redirect Login
           await syncUserWithFirestore(result.user);
         }
       } catch (error) {
@@ -116,12 +114,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // ROBUST GOOGLE LOGIN STRATEGY
   const loginWithGoogle = async () => {
     try {
-      // Try Popup First
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error("Popup failed, trying redirect...", error);
-      
-      // If Popup fails (closed by user or browser blocked), try Redirect
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/popup-blocked') {
         await signInWithRedirect(auth, googleProvider);
       } else {
@@ -135,7 +130,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
       await setDoc(userDocRef, { onboardingCompleted: true }, { merge: true });
-      await refreshUser(); // Update local state
+      await refreshUser(); 
     } catch (error) {
       console.error("Error completing onboarding:", error);
       throw error;
