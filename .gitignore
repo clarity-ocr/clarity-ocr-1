@@ -45,3 +45,4 @@ GoogleService-Info.plist
 
 # OS files
 Thumbs.db
+.env
